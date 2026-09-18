@@ -51,7 +51,7 @@
 | X21_ | experiments/21_noise_band.py | SKIP | 本轮未重跑；盘上已有实测产物 reports/noise_band.json |
 | X12_ | experiments/12_cost_report.py | PASS | 退出码 0 |
 | X25_ | experiments/25_deliverable_check.py | PASS | 退出码 0 |
-| P1 | python -m pytest | PASS | 退出码 0 | .......................                                                  [100%] / 599 passed 〔耗时已隐去〕（引用前已隐去敏感形态与耗时读数） |
+| P1 | python -m pytest | PASS | 退出码 0 | .........................                                                [100%] / 601 passed 〔耗时已隐去〕（引用前已隐去敏感形态与耗时读数） |
 | P2 | 服务端工具注册表自检 | PASS | 一致 |
 | S9 | 报告自身不带污染 | PASS | 0 命中 |
 

@@ -74,8 +74,8 @@
 
 | 被重写又还原的文件 | 跑之前 sha256 | 跑完 sha256 | 还原 |
 |---|---|---|---|
-| `reports/verify.md` | `4f121d384ba7` | `4f121d384ba7` | 是 |
-| `reports/final_selfcheck.md` | `bc73c835ab70` | `bc73c835ab70` | 是 |
+| `reports/verify.md` | `d3e249eb33d9` | `d3e249eb33d9` | 是 |
+| `reports/final_selfcheck.md` | `a7c85538087f` | `a7c85538087f` | 是 |
 
 - 代价说清：还原发生在**子进程跑完之后**。要是那一步中途被强杀（比如手工 Ctrl+C），这两份报告会停在降级状态 —— 重跑一次闸门即可复原，`git status` 会明确告诉你有哪两份被改过
 - 还有一条**没有**被这层还原覆盖：`27` 自己写的 `reports/leak_fix_verify.md`。它是本脚本的产物，本来就该被改写

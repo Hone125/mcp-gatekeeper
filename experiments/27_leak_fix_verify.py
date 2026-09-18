@@ -171,6 +171,47 @@ def _rev_count() -> int:
         return -1
 
 
+LEGACY_REF_PREFIX = "refs/heads/legacy/"
+
+
+def legacy_history_refs() -> list[str] | None:
+    """本机那几条 `legacy/…` 分支 —— 「那段旧历史还在不在本机」的证据；读不出来返回 `None`。
+
+    旧历史按设计只留在**本地**（`legacy/history-<日期>`，永不推送，见 `PROGRESS.md`），
+    所以「本机有没有一条 `legacy/…` 分支」就是「本机还留没留着那段旧历史」。
+    第 15 项与负控乙的第三条分支问的正是这个。
+
+    ★ 为什么**不**用「本机一共多少笔提交」（原来写的是 `_rev_count() > 1`）：
+      **那是个会自己变的数**。新仓刚建好时它只有一笔，`> 1` 恒不成立，看着挺对；
+      等新仓自己攒到第二笔，任何一台把它 clone 下来的机器都会落进 FAIL 那一支，
+      挨一句「历史被重写过」—— 而人家只是 `git clone` 了一下。不实、严重，而且
+      **不需要谁去改代码，它自己就会开始误报**。判据得钉在证据上。
+
+    ★ 为什么**也不**用「有没有任何一条落在 `main` 历史之外的引用」：那样太宽 ——
+      谁在本地开个自己的分支（提两笔、还没合并），那也是「落在 `main` 之外」，
+      于是又一个不相干的人被指「重写过历史」。旧历史放哪儿是有名字的：问它就行。
+    """
+    try:
+        p = subprocess.run(["git", "-C", str(ROOT), "for-each-ref",
+                            "--format=%(refname)", LEGACY_REF_PREFIX],
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode != 0:
+        return None
+    return sorted(r for r in (p.stdout or "").split() if r.startswith(LEGACY_REF_PREFIX))
+
+
+def _join_refs(refs: list[str], keep: int = 3) -> str:
+    """把引用名拼成一句人话（列出来读的人才能自己复核；多了就只给个数）。
+
+    引用名不是钥匙 —— 被搬走的是**编号**，而分支名本来就写在 `PROGRESS.md` 里。
+    """
+    head = "、".join(f"`{r}`" for r in refs[:keep])
+    return head if len(refs) <= keep else f"{head} 等 {len(refs)} 条"
+
+
 def synthetic_negative_control() -> dict:
     """★ 负控甲：拿三段**已知含词**的样本文本，试试这把尺子当下还灵不灵。
 
@@ -213,12 +254,17 @@ def old_history_rows() -> dict:
     返回 `{status, n_kinds, n_occur, sha, note, hits}`。`status` 有三个值：
 
     - `PASS` —— 取得到那一版，而且**命中 > 0**（残留还在 = 历史没被人无声重写）；
-    - `FAIL` —— 取得到而命中 0（有人在没人同意的时候重写过），或者本机明明存着
-      多笔历史却取不回那个对象（同上）；
-    - `无实测依据` —— 本机根本没有那段历史（新仓的正常状态）。**既不是通过，
-      也不是失败。** ★ 这个分支是这次特意加的：以前这种情况判 FAIL，而它的措辞是
-      「那个提交也不在了 —— 历史被重写过」。对一台新 clone 的机器来说，
-      那是一条**不实且严重**的指控。
+    - `FAIL` —— 取得到而命中 0（有人在没人同意的时候重写过），或者**本机确实还
+      留着那段旧历史**（`legacy/…` 分支还在）却取不回那个对象（同上）；
+    - `无实测依据` —— 本机根本没有那段历史（新 clone 的正常状态，没有 `legacy/…`
+      分支）。**既不是通过，也不是失败。** ★ 这个分支是这次特意加的：以前这种
+      情况判 FAIL，而它的措辞是「那个提交也不在了 —— 历史被重写过」。对一台
+      新 clone 的机器来说，那是一条**不实且严重**的指控。
+
+    ★ 第三条分支的**条件**改过一次（理由写在 `legacy_history_refs()` 的 docstring 里）：
+      原来问「本机提交笔数 > 1」—— 那是个会随新仓自己长的数，新仓攒到第二笔之后
+      **每一台新 clone 的机器**都会被推去 FAIL 那一支。现在问的是证据：
+      本机还留没留着那段旧历史。三个状态的语义与措辞一个字没动。
     """
     pre, why = paths.pre_fix_commit()
     label, _ = paths.pre_fix_label()
@@ -237,21 +283,26 @@ def old_history_rows() -> dict:
                 "hits": []}
     text = pre_fix_text(pre)
     if not text:
-        n_all = _rev_count()
-        if n_all < 0:
+        kept = legacy_history_refs()
+        if kept is None:
             return {"status": "无实测依据", "n_kinds": 0, "n_occur": 0, "sha": "-",
-                    "note": "本机读不出 git 历史（`git rev-list` 跑不起来）——"
+                    "note": "本机读不出 git 引用（`git for-each-ref` 跑不起来）——"
+                            "于是「本机还留没留着那段旧历史」问不出来，"
                             "本项没有实测依据", "hits": []}
-        if n_all > 1:
+        n_all = _rev_count()
+        n_txt = f"{n_all} 笔提交" if n_all >= 0 else "若干笔提交"
+        if kept:
             return {"status": FAIL, "n_kinds": 0, "n_occur": 0, "sha": "-",
-                    "note": f"本机存着 {n_all} 笔提交，却取不回 `{shown}` 那一版",
+                    "note": f"本机 {n_txt}里还留着那段旧历史的分支"
+                            f"（{_join_refs(kept)}）—— 那段历史本机确实存着，"
+                            f"却取不回 `{shown}` 那一版",
                     "hits": [f"取不回 `{shown}` 那一版"
-                             "（本机明明存着多笔历史 —— 历史被重写过）"]}
+                             "（本机确实还存着那段旧历史 —— 历史被重写过）"]}
         return {"status": "无实测依据", "n_kinds": 0, "n_occur": 0, "sha": "-",
-                "note": f"本机只有 {n_all} 笔提交（历史自一条初始提交起算），"
-                        f"那段旧历史不在本机、存档在维护者本地 —— "
-                        f"本项**没有实测依据**：既不是通过，**也不等于**"
-                        f"「历史被重写过」", "hits": []}
+                "note": f"本机 {n_txt}，没有一条 `legacy/…` 分支"
+                        f"（新 clone 的正常状态：那段旧历史不在本机、"
+                        f"存档在维护者本地）—— 本项**没有实测依据**："
+                        f"既不是通过，**也不等于**「历史被重写过」", "hits": []}
     k, o = scan(text), count_occurrences(text)
     ok = bool(k)
     return {"status": PASS if ok else FAIL, "n_kinds": len(k), "n_occur": o,

@@ -78,19 +78,27 @@ def test_history_residue_passes_when_residue_is_still_there(monkeypatch):
     ★ 第二个 SKIP 口子是**迁仓之后**才有的（D-54）：新仓的历史自一条初始提交
     起算，那段旧历史根本不在新 clone 的机器上，于是「那一版里还读得出那些字」这件事
     **没有对象可测** —— 被测函数这时判 SKIP（照实说明理由），本条用例跟着判 SKIP。
-    条件写得**很窄**：只有「本机取不回那一版」**且**「本机历史不超过一条」才跳。
-    维护者本机（历史 > 1 笔）上它照样必须 PASS，所以将来若有人把第 15 项改成
-    「永远 SKIP」，这一条仍然会红。SKIP 那条分支本身另有
-    `test_history_residue_is_skip_when_the_old_history_is_not_here` 钉住。
+    条件写得**很窄**：只有「本机取不回那一版」**且**「本机没有一条 `legacy/…`
+    分支」（那段旧历史不在本机）才跳。维护者本机留着那条分支，它照样必须 PASS，
+    所以将来若有人把第 15 项改成「永远 SKIP」，这一条仍然会红。
+
+    ★ 那个条件改过一次：原来问的是「本机提交笔数 ≤ 1」。**笔数会随新仓自己长**，
+      于是新仓攒到第二笔之后，每一台新 clone 的机器都会落进 FAIL 那一支，
+      挨一句「历史被重写过」—— 不实且严重，而且不需要谁改代码它就会自己开始误报。
+      现在是问证据（本机还留没留着那段旧历史）。两个分支各自另有
+      `test_history_residue_is_skip_when_this_clone_has_only_the_new_history` 与
+      `test_history_residue_fails_when_the_old_history_is_here_but_the_object_is_gone`
+      钉住；`not pre` 那一支由
+      `test_history_residue_is_skip_when_the_old_history_is_not_here` 钉住。
     """
     if not sc.WORDLIST_AVAILABLE:
         pytest.skip("词表不在本机（仓外文件）：扫出来必然是 0 命中，本项没有实测依据")
     v27 = _patched_27(monkeypatch)
     pre, _ = paths.pre_fix_commit()
-    n_all = v27._rev_count()
-    if pre and not v27.pre_fix_text(pre) and n_all <= 1:
-        pytest.skip(f"本机只有 {n_all} 笔提交（新仓的正常状态）：那段旧历史不在本机，"
-                    f"这一版取不回来 —— 本项没有实测依据，既不是通过也不是失败")
+    if pre and not v27.pre_fix_text(pre) and not v27.legacy_history_refs():
+        pytest.skip("本机没有一条 `legacy/…` 分支（新 clone 的正常状态）："
+                    "那段旧历史不在本机，这一版取不回来 —— "
+                    "本项没有实测依据，既不是通过也不是失败")
     item = dsc.check_15_history_residue()
     assert item.status == dsc.PASS, (item.status, item.note, item.hits)
     assert "命中" in item.note and "只读" in item.note
@@ -161,6 +169,55 @@ def test_history_residue_is_skip_when_the_old_history_is_not_here(monkeypatch):
     assert "没有实测依据" in item.note
     # ★ 负控甲那一条腿**仍然要真的跑过** —— 不能因为乙没有依据就整项躺平
     assert "合成负控通过" in item.note
+
+
+def test_history_residue_is_skip_when_this_clone_has_only_the_new_history(monkeypatch):
+    """★ 新 clone 的正常状态：本机**没有**任何引用落在 `main` 历史之外 → SKIP。
+
+    这条用例钉的正是那个「会自己开始误报」的坑：判据原来问「本机提交笔数 > 1」，
+    而新仓的历史自己会长 —— 攒到第二笔之后，每一台新 clone 的机器都会落进 FAIL
+    那一支挨一句「历史被重写过」，尽管它只是 `git clone` 了一下。
+    所以这里把笔数按成 **5 笔**（改判据之前这一条必红）而把 `legacy/…` 按成空：
+    本项必须判 SKIP，而不是 FAIL。
+    """
+    if not sc.WORDLIST_AVAILABLE:
+        pytest.skip("词表不在本机（仓外文件）：负控甲没有样本可用")
+    v27 = _patched_27(monkeypatch)
+    monkeypatch.setattr(dsc.paths, "pre_fix_commit",
+                        lambda: ("测试桩-占位，不是真编号", "测试里钉的"))
+    monkeypatch.setattr(dsc.paths, "pre_fix_label", lambda: ("旧编号·F", "同上"))
+    monkeypatch.setattr(v27, "pre_fix_text", lambda _id: "")
+    monkeypatch.setattr(v27, "legacy_history_refs", lambda: [])
+    monkeypatch.setattr(v27, "_rev_count", lambda: 5)
+    item = dsc.check_15_history_residue()
+    assert item.status == dsc.SKIP, (item.status, item.note, item.hits)
+    assert "没有实测依据" in item.note
+    assert "历史被重写过" in item.note          # 只是「不等于」它，不是判了它
+    # ★ 负控甲那一条腿**仍然要真的跑过** —— 乙没有依据不等于整项躺平
+    assert "合成负控通过" in item.note
+
+
+def test_history_residue_fails_when_the_old_history_is_here_but_the_object_is_gone(
+        monkeypatch):
+    """★ 本机**确实还留着那段旧历史**（`legacy/…` 分支还在），却取不回那一版 → FAIL。
+
+    钉的是那条 FAIL 分支的**条件**：证据是「本机还留着那段旧历史的分支」，
+    不是「本机提交笔数 > 1」。这条分支要是没人钉，把条件写松（或写反）都看不出来 ——
+    而它正是「不许在没人同意的时候重写历史」这条判据的牙。
+    """
+    if not sc.WORDLIST_AVAILABLE:
+        pytest.skip("词表不在本机（仓外文件）：本项这时判 SKIP，走不到这条分支")
+    v27 = _patched_27(monkeypatch)
+    monkeypatch.setattr(dsc.paths, "pre_fix_commit",
+                        lambda: ("测试桩-占位，不是真编号", "测试里钉的"))
+    monkeypatch.setattr(dsc.paths, "pre_fix_label", lambda: ("旧编号·F", "同上"))
+    monkeypatch.setattr(v27, "pre_fix_text", lambda _id: "")
+    monkeypatch.setattr(v27, "legacy_history_refs",
+                        lambda: ["refs/heads/legacy/history-测试桩"])
+    item = dsc.check_15_history_residue()
+    assert item.status == dsc.FAIL, (item.status, item.note, item.hits)
+    assert item.hits and "历史被重写过" in item.hits[0]
+    assert "那段旧历史的分支" in item.note
 
 
 def test_history_residue_fails_when_the_ruler_itself_is_broken(monkeypatch):
