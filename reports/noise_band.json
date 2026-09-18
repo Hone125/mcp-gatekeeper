@@ -1,0 +1,32 @@
+{
+  "noise_band": 1,
+  "n_questions": 36,
+  "n_answerable": 32,
+  "n_answerable_flips": 1,
+  "version": "v3",
+  "temperature": 0,
+  "runs": [
+    "run1",
+    "run2"
+  ],
+  "flips": [
+    {
+      "id": "q26",
+      "tag": "连接",
+      "expect": "rows",
+      "run_a": true,
+      "run_b": false,
+      "sql_a": "SELECT SupportRepId, COUNT(CustomerId) AS CustomerCount FROM Customer GROUP BY SupportRepId LIMIT 200",
+      "sql_b": "SELECT EmployeeId, COUNT(CustomerId) AS CustomerCount\nFROM Employee\nLEFT JOIN Customer ON Employee.EmployeeId = Customer.SupportRepId\nGROUP BY EmployeeId LIMIT 200"
+    }
+  ],
+  "definition": [
+    "噪声带 = 同一臂（同一个提示词版本）、temperature=0、连跑两遍，逐题判定结果翻转的题数。分母是全部 36 题。",
+    "可答题的判定结果取严格 EX（strict）；不可答题取『模型有没有老实说答不了』。",
+    "n_answerable_flips 是同一批翻转里只数那 32 道可答题的部分，方便与 eval_grading.summarize() 的分母口径对上。"
+  ],
+  "caveat": [
+    "这是**一对**重复对照量出来的波动。一对样本估不出波动的分布，所以它只能当「低于这个数就别当回事」的下限用，不是置信区间。",
+    "它也不排除更小概率的更大波动：真正的极端抖动需要更多重复才看得见。"
+  ]
+}

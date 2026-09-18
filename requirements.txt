@@ -1,0 +1,19 @@
+# 运行时依赖（全部为纯 Python 包，无编译扩展，无 GPU 依赖）
+#
+# 版本号是实测通过的版本，不是「最低要求」。直接 `pip install -r requirements.txt`
+# 会装到这一组版本上，本仓库的全部脚本与测试都在这一组版本下跑通过。
+#
+# 不需要的东西（刻意的）：
+#   - 不需要向量库 / embedding 依赖：知识库检索用 stdlib 的 sqlite3 + FTS5 实现
+#   - 不需要 langchain 或任何 agent 框架：MCP 工具层与状态机都是手写的
+#   - 不需要 numpy / pandas：评测比较是纯 Python 的元组比较
+#   - 不需要 sqlparse：SQL 护栏是正则 + sqlite3 引擎级 authorizer 两层，不用 SQL 解析器
+
+mcp==2.2.0              # MCP 协议 SDK（2.x：入口是 mcp.server.mcpserver.MCPServer）
+PyJWT==2.14.0           # HS256 令牌签发与校验
+openai==3.14.0          # OpenAI 兼容客户端（任何兼容端点都能用，不绑定某一家）
+python-dotenv==1.2.3    # 读取 .env（只在需要 LLM 的链路上用到）
+jieba==0.42.1           # 中文切词，供知识库建 FTS5 索引用
+
+# 开发/评测依赖
+pytest==9.1.1

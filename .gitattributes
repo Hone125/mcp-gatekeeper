@@ -1,0 +1,27 @@
+# 换行符一律锁成 LF。
+#
+# 为什么这件事必须显式声明，而不能靠默认行为：
+#
+# Windows 上的 git 默认（core.autocrlf=true）在**检出**时把文本文件的 LF 换成 CRLF。
+# 对本仓库来说这是致命的，因为它会静默破坏两件已经公开声明的事实：
+#
+#   1. `data/chinook/Chinook_Sqlite.sql` 声称「与上游逐字节一致，sha256 = caf31d69…」。
+#      检出时换成 CRLF，字节数和哈希就都变了 —— 那句声明在别人的机器上直接失效。
+#   2. `data/kb/manifest.json` 里逐篇记了语料的 sha256，`02_build_kb.py` 的偏移量
+#      也建立在正文的字符位置上。多出来的 \r 会让哈希对不上、偏移量整体错位。
+#
+# 仓库里存的是 LF，检出也必须给 LF，这样 Windows / Linux / macOS 拿到的是同一批字节。
+# 「clone 下来跑不通」最常见的原因之一就是这种看不见的换行符差异。
+
+* text=auto eol=lf
+
+# 数据文件显式再声明一次。它们是要被算哈希的，不能有任何转换余地。
+*.sql   text eol=lf
+*.txt   text eol=lf
+*.json  text eol=lf
+
+# 二进制文件不做任何转换
+*.db    binary
+*.png   binary
+*.jpg   binary
+*.ico   binary

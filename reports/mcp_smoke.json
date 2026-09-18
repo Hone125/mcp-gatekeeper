@@ -1,0 +1,196 @@
+{
+  "rows": [
+    {
+      "label": "握手成功，拿到服务端标识",
+      "expect": "server_info.name == 'guarded-toolkit'",
+      "got": "'guarded-toolkit'，协议版本 '2025-11-25'",
+      "ok": true,
+      "note": "协议版本由 SDK 磋商，本仓库不锁定它"
+    },
+    {
+      "label": "线上工具数与 TOOL_SCOPES 一致",
+      "expect": "6 个",
+      "got": "6 个：ask_database, get_passage, get_schema, list_tables, run_sql, search_passages",
+      "ok": true,
+      "note": "客户端看到的是框架真实导出的清单"
+    },
+    {
+      "label": "线上工具数与本地注册表一致",
+      "expect": "6 个",
+      "got": "6 个",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "**每个**工具的入参 schema 都把 token 列为必填",
+      "expect": "6 / 6 个工具要求 token",
+      "got": "全部符合",
+      "ok": true,
+      "note": "客户端是照着 schema 决定传不传令牌的；schema 里没有 token，就等于在接口契约里没提鉴权这回事"
+    },
+    {
+      "label": "**每个**工具都有描述",
+      "expect": "6 / 6",
+      "got": "6 / 6",
+      "ok": true,
+      "note": "描述是模型选择工具的唯一依据"
+    },
+    {
+      "label": "无令牌调用：协议层不算错误，返回体里标记拒绝",
+      "expect": "is_error=False 且 denied=True 且 code=NO_TOKEN",
+      "got": "is_error=False，denied=True，code=NO_TOKEN",
+      "ok": true,
+      "note": "做成协议错误的话，客户端会当成「调用失败」去重试，而不是「我没有权限」"
+    },
+    {
+      "label": "伪造签名的令牌被拒",
+      "expect": "code=BAD_SIGNATURE",
+      "got": "code=BAD_SIGNATURE",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "令牌有效但 scope 不足，被工具级 scope 拒掉",
+      "expect": "code=INSUFFICIENT_SCOPE",
+      "got": "code=INSUFFICIENT_SCOPE",
+      "ok": true,
+      "note": "同一把钥匙开不了所有的门"
+    },
+    {
+      "label": "被拒时返回体里没有查询结果",
+      "expect": "不含 rows / sql 字段",
+      "got": "不含",
+      "ok": true,
+      "note": "鉴权挡在业务代码之前，SQL 根本没被执行"
+    },
+    {
+      "label": "令牌齐全时放行（★ 反证：不是一刀切全拒）",
+      "expect": "denied 不为 True",
+      "got": "denied=None，业务层 code=ok",
+      "ok": true,
+      "note": "断言的是「没被拒」，不是「业务成功」——本实验不要求数据已构建"
+    },
+    {
+      "label": "参数没传够：这次是**协议错误**",
+      "expect": "is_error=True",
+      "got": "is_error=True",
+      "ok": true,
+      "note": "和上面的鉴权拒绝形成对照：缺参数是「调用方式不对」，令牌不对是「调用方式对但你没权限」。两者的处理方式完全不同"
+    },
+    {
+      "label": "调用不存在的工具",
+      "expect": "is_error=True，或客户端直接抛错",
+      "got": "is_error=True，文本 'Unknown tool: no_such_tool'",
+      "ok": true,
+      "note": "调用一个没注册的工具必须失败，否则说明服务端在乱猜工具名"
+    }
+  ],
+  "timeout_rows": [
+    {
+      "label": "服务端 stdout 里一行人话都没有",
+      "expect": "stdout 全是 JSON-RPC；启动信息出现在 stderr",
+      "got": "stdout 0 行，其中 0 行不是 JSON；stderr 里有启动信息",
+      "ok": true,
+      "stdout_lines": 0,
+      "stderr_has_startup": true
+    },
+    {
+      "label": "服务端启动成功但永不回应时，客户端不会挂死",
+      "expect": "等到声明的硬超时（5s）之后、15s 之内失败并给出原因",
+      "got": "等到声明的硬超时之后才失败：WouldBlock: ",
+      "ok": true
+    },
+    {
+      "label": "服务端根本起不来时，客户端给出可读原因",
+      "expect": "立刻报错，且原因指向子进程退出",
+      "got": "没等到硬超时（30s）就失败了：MCPError: Connection closed",
+      "ok": true
+    }
+  ],
+  "schemas": [
+    {
+      "name": "ask_database",
+      "required": [
+        "question",
+        "token"
+      ],
+      "properties": [
+        "question",
+        "token",
+        "version"
+      ],
+      "scope": "db:query"
+    },
+    {
+      "name": "get_passage",
+      "required": [
+        "doc_id",
+        "token"
+      ],
+      "properties": [
+        "doc_id",
+        "length",
+        "offset",
+        "token"
+      ],
+      "scope": "kb:read"
+    },
+    {
+      "name": "get_schema",
+      "required": [
+        "token"
+      ],
+      "properties": [
+        "table",
+        "token"
+      ],
+      "scope": "db:read"
+    },
+    {
+      "name": "list_tables",
+      "required": [
+        "token"
+      ],
+      "properties": [
+        "token"
+      ],
+      "scope": "db:read"
+    },
+    {
+      "name": "run_sql",
+      "required": [
+        "sql",
+        "token"
+      ],
+      "properties": [
+        "sql",
+        "token"
+      ],
+      "scope": "db:query"
+    },
+    {
+      "name": "search_passages",
+      "required": [
+        "query",
+        "token"
+      ],
+      "properties": [
+        "query",
+        "token",
+        "top_k"
+      ],
+      "scope": "kb:read"
+    }
+  ],
+  "notes": [
+    "**鉴权失败不是协议错误**：令牌缺失/不对/scope 不足都返回 `is_error=False` 加一个 `denied: True` 的正常结果。做成协议错误的话，客户端会把它读成「工具调用失败」而去重试，而不是「我没有权限」。缺必填参数才是 `is_error=True`。",
+    "**`struct` 与文本都给**：工具返回的是结构化对象，SDK 同时把它序列化进 `content`。本实验读的是 `content[0].text` 并自己 `json.loads`，这样即使将来 SDK 改变结构化通道的形态，断言也不受影响。",
+    "**任何一个失败都会被包成嵌套的 `ExceptionGroup`**：`stdio_client` 把所有异常收进 anyio 的任务组，`repr()` 出来是十几层 `+-+`。本脚本用 `root_cause()` 剥到最里层再记进报告 —— 否则报告里出现的是一屏缩进，真正的原因（比如「模块名拼错了」）反而看不见。"
+  ],
+  "cases": 12,
+  "pass": 12,
+  "timeout_cases": 3,
+  "timeout_pass": 3,
+  "n_cases": 15,
+  "n_pass": 15
+}

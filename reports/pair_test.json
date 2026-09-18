@@ -1,0 +1,99 @@
+{
+  "noise_band": 1,
+  "noise_band_meta": {
+    "noise_band": 1,
+    "n_questions": 36,
+    "n_answerable": 32,
+    "n_answerable_flips": 1,
+    "version": "v3",
+    "temperature": 0,
+    "runs": [
+      "run1",
+      "run2"
+    ],
+    "flips": [
+      {
+        "id": "q26",
+        "tag": "连接",
+        "expect": "rows",
+        "run_a": true,
+        "run_b": false,
+        "sql_a": "SELECT SupportRepId, COUNT(CustomerId) AS CustomerCount FROM Customer GROUP BY SupportRepId LIMIT 200",
+        "sql_b": "SELECT EmployeeId, COUNT(CustomerId) AS CustomerCount\nFROM Employee\nLEFT JOIN Customer ON Employee.EmployeeId = Customer.SupportRepId\nGROUP BY EmployeeId LIMIT 200"
+      }
+    ],
+    "definition": [
+      "噪声带 = 同一臂（同一个提示词版本）、temperature=0、连跑两遍，逐题判定结果翻转的题数。分母是全部 36 题。",
+      "可答题的判定结果取严格 EX（strict）；不可答题取『模型有没有老实说答不了』。",
+      "n_answerable_flips 是同一批翻转里只数那 32 道可答题的部分，方便与 eval_grading.summarize() 的分母口径对上。"
+    ],
+    "caveat": [
+      "这是**一对**重复对照量出来的波动。一对样本估不出波动的分布，所以它只能当「低于这个数就别当回事」的下限用，不是置信区间。",
+      "它也不排除更小概率的更大波动：真正的极端抖动需要更多重复才看得见。"
+    ]
+  },
+  "results": [
+    {
+      "name_a": "v1",
+      "name_b": "v2",
+      "n_paired": 32,
+      "n_only_a": 0,
+      "n_only_b": 1,
+      "n_both": 29,
+      "n_neither": 2,
+      "delta": -1,
+      "p": 1.0,
+      "noise_band": 1,
+      "beyond_noise": false,
+      "sentence": "v1 与 v2 的不一致对数为 1 题（v1 独对 0 题、v2 独对 1 题），净差 -1 题，精确双尾 p = 1.0000，噪声带 1 题。净差方向为负，**未超出噪声带**，只能写作「方向为负，未达可判定水平」。",
+      "banned_words": [],
+      "unsupported_flips": []
+    },
+    {
+      "name_a": "v1",
+      "name_b": "v3",
+      "n_paired": 32,
+      "n_only_a": 2,
+      "n_only_b": 0,
+      "n_both": 27,
+      "n_neither": 3,
+      "delta": 2,
+      "p": 0.5,
+      "noise_band": 1,
+      "beyond_noise": true,
+      "sentence": "v1 与 v3 的不一致对数为 2 题（v1 独对 2 题、v3 独对 0 题），净差 +2 题，精确双尾 p = 0.5000，噪声带 1 题。净差方向为正，**超出噪声带**。p 值仍需照实报出。",
+      "banned_words": [],
+      "unsupported_flips": [
+        "q33",
+        "q34",
+        "q35",
+        "q36"
+      ]
+    },
+    {
+      "name_a": "v2",
+      "name_b": "v3",
+      "n_paired": 32,
+      "n_only_a": 3,
+      "n_only_b": 0,
+      "n_both": 27,
+      "n_neither": 2,
+      "delta": 3,
+      "p": 0.25,
+      "noise_band": 1,
+      "beyond_noise": true,
+      "sentence": "v2 与 v3 的不一致对数为 3 题（v2 独对 3 题、v3 独对 0 题），净差 +3 题，精确双尾 p = 0.2500，噪声带 1 题。净差方向为正，**超出噪声带**。p 值仍需照实报出。",
+      "banned_words": [],
+      "unsupported_flips": [
+        "q33",
+        "q34",
+        "q35",
+        "q36"
+      ]
+    }
+  ],
+  "note": [
+    "口径见 reports/pair_test.md 的「口径」小节与 mcp_server/eval_grading.py 文件头。",
+    "措辞由 describe_difference() 独家生产，禁用词表是封闭的。"
+  ]
+}

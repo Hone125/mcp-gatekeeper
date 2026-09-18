@@ -1,0 +1,280 @@
+{
+  "meta": {
+    "db": "chinook",
+    "n": 36,
+    "n_answerable": 32,
+    "n_unsupported": 4,
+    "note": [
+      "每题都带一条**可执行的参考 SQL**，而不是一句口头描述的「标准答案」。",
+      "评分口径见 mcp_server/eval_grading.py 的文件头；每条参考 SQL 都由 experiments/09_text2sql_eval.py --check-questions 实跑核验。",
+      "★ 设计约束：参考答案一律不超过 200 行。因为护栏会自动补 LIMIT 200（见 DECISIONS.md D-3），",
+      "  若某题的正确结果本身就超过 200 行，模型答对了也会被截断 —— 那样考的是我自己的行数上限，不是模型。",
+      "★ 带 ORDER BY 的题目一律加了**确定的次序键**（并列时再按主键排），否则「前 5 名」在并列处不唯一，",
+      "  参考结果就成了一次抽签。"
+    ]
+  },
+  "questions": [
+    {
+      "id": "q01",
+      "question": "库里一共有多少位艺术家？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Artist",
+      "tag": "单表计数"
+    },
+    {
+      "id": "q02",
+      "question": "一共有多少张专辑？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Album",
+      "tag": "单表计数"
+    },
+    {
+      "id": "q03",
+      "question": "一共有多少首曲目？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Track",
+      "tag": "单表计数"
+    },
+    {
+      "id": "q04",
+      "question": "一共有多少位客户？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Customer",
+      "tag": "单表计数"
+    },
+    {
+      "id": "q05",
+      "question": "一共有多少个流派？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Genre",
+      "tag": "单表计数"
+    },
+    {
+      "id": "q06",
+      "question": "列出所有流派的名字。",
+      "expect": "rows",
+      "ref_sql": "SELECT Name FROM Genre",
+      "tag": "单表投影",
+      "note": "25 行，是题集里最宽的一题之一；用来观察「模型会不会多加列」。"
+    },
+    {
+      "id": "q07",
+      "question": "所有曲目的时长加起来一共是多少毫秒？",
+      "expect": "rows",
+      "ref_sql": "SELECT SUM(Milliseconds) FROM Track",
+      "tag": "单表聚合"
+    },
+    {
+      "id": "q08",
+      "question": "曲目里最高的单价是多少？",
+      "expect": "rows",
+      "ref_sql": "SELECT MAX(UnitPrice) FROM Track",
+      "tag": "单表聚合"
+    },
+    {
+      "id": "q09",
+      "question": "每个流派各有多少首曲目？给出流派编号和曲目数。",
+      "expect": "rows",
+      "ref_sql": "SELECT GenreId, COUNT(*) FROM Track GROUP BY GenreId",
+      "tag": "分组",
+      "note": "问句里点明了「流派编号」，避免模型给流派名字还是编号的歧义。"
+    },
+    {
+      "id": "q10",
+      "question": "每张发票的平均金额是多少？",
+      "expect": "rows",
+      "ref_sql": "SELECT AVG(Total) FROM Invoice",
+      "tag": "浮点聚合",
+      "note": "★ 浮点题：两个等价写法（AVG vs SUM/COUNT）末位会有差异，评分必须带容差，见 eval_grading.py。"
+    },
+    {
+      "id": "q11",
+      "question": "所有发票的金额合计是多少？",
+      "expect": "rows",
+      "ref_sql": "SELECT SUM(Total) FROM Invoice",
+      "tag": "浮点聚合"
+    },
+    {
+      "id": "q12",
+      "question": "每位客户各有多少张发票？给出客户编号和发票数。",
+      "expect": "rows",
+      "ref_sql": "SELECT CustomerId, COUNT(*) FROM Invoice GROUP BY CustomerId",
+      "tag": "分组"
+    },
+    {
+      "id": "q13",
+      "question": "每种媒体类型各有多少首曲目？给出媒体类型编号和曲目数。",
+      "expect": "rows",
+      "ref_sql": "SELECT MediaTypeId, COUNT(*) FROM Track GROUP BY MediaTypeId",
+      "tag": "分组"
+    },
+    {
+      "id": "q14",
+      "question": "有多少首曲目没有填作曲家？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Track WHERE Composer IS NULL",
+      "tag": "空值",
+      "note": "空值题。写成 `Composer = NULL` 是新手最常见的错，这条会把它抓出来（结果是 0 行而不是 977）。"
+    },
+    {
+      "id": "q15",
+      "question": "时长最长的 10 首曲目分别叫什么名字？",
+      "expect": "rows",
+      "ref_sql": "SELECT Name FROM Track ORDER BY Milliseconds DESC, TrackId LIMIT 10",
+      "tag": "排序限量"
+    },
+    {
+      "id": "q16",
+      "question": "金额最高的 5 张发票，金额分别是多少？",
+      "expect": "rows",
+      "ref_sql": "SELECT Total FROM Invoice ORDER BY Total DESC, InvoiceId LIMIT 5",
+      "tag": "排序限量"
+    },
+    {
+      "id": "q17",
+      "question": "曲目数最多的 3 个流派是哪几个？给出流派编号和曲目数。",
+      "expect": "rows",
+      "ref_sql": "SELECT GenreId, COUNT(*) AS c FROM Track GROUP BY GenreId ORDER BY c DESC, GenreId LIMIT 3",
+      "tag": "排序限量"
+    },
+    {
+      "id": "q18",
+      "question": "按姓氏的字母顺序排列，排在最前面的 5 位客户，他们的姓氏分别是什么？",
+      "expect": "rows",
+      "ref_sql": "SELECT LastName FROM Customer ORDER BY LastName, CustomerId LIMIT 5",
+      "tag": "排序限量"
+    },
+    {
+      "id": "q19",
+      "question": "时长最短的 5 首曲目，各自的时长是多少毫秒？",
+      "expect": "rows",
+      "ref_sql": "SELECT Milliseconds FROM Track ORDER BY Milliseconds, TrackId LIMIT 5",
+      "tag": "排序限量"
+    },
+    {
+      "id": "q20",
+      "question": "艺术家 AC/DC 名下的专辑都叫什么名字？",
+      "expect": "rows",
+      "ref_sql": "SELECT Album.Title FROM Album JOIN Artist ON Album.ArtistId = Artist.ArtistId WHERE Artist.Name = 'AC/DC'",
+      "tag": "连接"
+    },
+    {
+      "id": "q21",
+      "question": "艺术家 AC/DC 名下一共有多少张专辑？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Album JOIN Artist ON Album.ArtistId = Artist.ArtistId WHERE Artist.Name = 'AC/DC'",
+      "tag": "连接"
+    },
+    {
+      "id": "q22",
+      "question": "哪 5 位艺术家名下的专辑最多？给出艺术家编号和专辑数。",
+      "expect": "rows",
+      "ref_sql": "SELECT ArtistId, COUNT(*) AS c FROM Album GROUP BY ArtistId ORDER BY c DESC, ArtistId LIMIT 5",
+      "tag": "连接"
+    },
+    {
+      "id": "q23",
+      "question": "发票 1 里包含哪些曲目？给出曲目名字。",
+      "expect": "rows",
+      "ref_sql": "SELECT Track.Name FROM InvoiceLine JOIN Track ON InvoiceLine.TrackId = Track.TrackId WHERE InvoiceLine.InvoiceId = 1",
+      "tag": "连接"
+    },
+    {
+      "id": "q24",
+      "question": "来自 Brazil 的客户，他们的名和姓分别是什么？",
+      "expect": "rows",
+      "ref_sql": "SELECT FirstName, LastName FROM Customer WHERE Country = 'Brazil'",
+      "tag": "过滤"
+    },
+    {
+      "id": "q25",
+      "question": "客户数最多的 5 个国家是哪几个？给出国家名和客户数。",
+      "expect": "rows",
+      "ref_sql": "SELECT Country, COUNT(*) AS c FROM Customer GROUP BY Country ORDER BY c DESC, Country LIMIT 5",
+      "tag": "分组"
+    },
+    {
+      "id": "q26",
+      "question": "每位员工各负责多少位客户？给出员工编号和客户数。",
+      "expect": "rows",
+      "ref_sql": "SELECT SupportRepId, COUNT(*) FROM Customer WHERE SupportRepId IS NOT NULL GROUP BY SupportRepId",
+      "tag": "连接",
+      "note": "★ 这里有个真实歧义：没人负责的客户要不要算？参考解取「有负责人的客户」，并在问题里用「负责多少位客户」把语义定住。"
+    },
+    {
+      "id": "q27",
+      "question": "播放列表 1 里一共有多少首曲目？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM PlaylistTrack WHERE PlaylistId = 1",
+      "tag": "连接"
+    },
+    {
+      "id": "q28",
+      "question": "时长超过全部曲目平均时长的曲目，一共有多少首？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Track WHERE Milliseconds > (SELECT AVG(Milliseconds) FROM Track)",
+      "tag": "子查询"
+    },
+    {
+      "id": "q29",
+      "question": "价格高于全部曲目平均价格的曲目一共有多少首？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Track WHERE UnitPrice > (SELECT AVG(UnitPrice) FROM Track)",
+      "tag": "子查询"
+    },
+    {
+      "id": "q30",
+      "question": "至少有一张专辑的艺术家一共有多少位？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(DISTINCT ArtistId) FROM Album",
+      "tag": "子查询",
+      "note": "★ 这题有个陷阱：Artist 有 275 行，但出现在 Album 里的只有一部分，答案不是 275。有没有真的去数，一看就知道。"
+    },
+    {
+      "id": "q31",
+      "question": "没有出现在任何播放列表里的曲目，一共有多少首？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Track WHERE TrackId NOT IN (SELECT TrackId FROM PlaylistTrack)",
+      "tag": "子查询"
+    },
+    {
+      "id": "q32",
+      "question": "金额高于全部发票平均金额的发票，一共有多少张？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Invoice WHERE Total > (SELECT AVG(Total) FROM Invoice)",
+      "tag": "子查询"
+    },
+    {
+      "id": "q33",
+      "question": "每张专辑分别是在哪一年发行的？",
+      "expect": "unsupported",
+      "why": "Album 表只有 AlbumId / Title / ArtistId，没有任何发行日期或年份列。",
+      "trap": "模型很可能拿曲目时长、或者干脆编一个年份来充数。",
+      "tag": "不可答"
+    },
+    {
+      "id": "q34",
+      "question": "每位客户现在的年龄是多少？",
+      "expect": "unsupported",
+      "why": "Customer 表没有出生日期。Employee 表有 BirthDate，客户没有。",
+      "trap": "「员工有生日所以客户也有」是最容易犯的错。",
+      "tag": "不可答"
+    },
+    {
+      "id": "q35",
+      "question": "每首曲目的库存还剩多少件？",
+      "expect": "unsupported",
+      "why": "库里没有任何库存表或库存字段。",
+      "trap": "InvoiceLine 里有 Quantity，但那是「卖出多少」不是「还剩多少」—— 拿它顶替是把语义搞反了。",
+      "tag": "不可答"
+    },
+    {
+      "id": "q36",
+      "question": "每位艺术家分别有多少粉丝？",
+      "expect": "unsupported",
+      "why": "库里没有粉丝、关注、评分这类表。",
+      "trap": "没有任何相近的列可以拿来表示粉丝数，只能老实说答不了。",
+      "tag": "不可答"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "version": "v3",
+  "pair": {
+    "name_a": "正式问法",
+    "name_b": "口语问法",
+    "n_paired": 13,
+    "n_only_a": 0,
+    "n_only_b": 0,
+    "n_both": 13,
+    "n_neither": 0,
+    "delta": 0,
+    "p": 1.0,
+    "noise_band": 3,
+    "beyond_noise": false,
+    "sentence": "正式问法 与 口语问法 的不一致对数为 0 题（正式问法 独对 0 题、口语问法 独对 0 题），净差 +0 题，精确双尾 p = 1.0000，噪声带 3 题。两臂逐题结果完全一致，未观测到差异。",
+    "banned_words": [],
+    "unsupported_flips": []
+  },
+  "note": "口径见 reports/colloquial_vs_formal.md；措辞由 eval_grading.pair_compare() 生产。"
+}

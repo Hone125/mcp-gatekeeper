@@ -1,0 +1,152 @@
+{
+  "meta": {
+    "purpose": "口语化问法：与正式题集**共用同一条参考解**，只把问句换成人话。",
+    "n": 15,
+    "n_answerable": 13,
+    "n_unsupported": 2,
+    "note": [
+      "★ 每条 ref_sql 是**程序化从 data/eval/questions.json 抄过来的**，不是手打的 —— 手抄会把两条 SQL 抄出细微差别，那样比较的就不是措辞了。",
+      "same_as 指向正式题集里的题号，reports/colloquial_vs_formal.md 按它做配对比较。",
+      "口径与正式题集完全一致，见 mcp_server/eval_grading.py 文件头。"
+    ]
+  },
+  "questions": [
+    {
+      "id": "cq01",
+      "question": "这库里塞了多少个歌手啊？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Artist",
+      "tag": "单表计数",
+      "same_as": "q01",
+      "colloquial_how": "「塞了多少个」代替「一共有多少位」"
+    },
+    {
+      "id": "cq02",
+      "question": "你们手上一共有多少客户？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Customer",
+      "tag": "单表计数",
+      "same_as": "q04",
+      "colloquial_how": "「手上有多少」代替「一共有多少位」"
+    },
+    {
+      "id": "cq03",
+      "question": "都有哪些流派？名字列出来。",
+      "expect": "rows",
+      "ref_sql": "SELECT Name FROM Genre",
+      "tag": "单表投影",
+      "same_as": "q06",
+      "colloquial_how": "省略了「所有」，语序改成反问式"
+    },
+    {
+      "id": "cq04",
+      "question": "把全部歌的时长加一块儿，一共多少毫秒？",
+      "expect": "rows",
+      "ref_sql": "SELECT SUM(Milliseconds) FROM Track",
+      "tag": "单表聚合",
+      "same_as": "q07",
+      "colloquial_how": "「加一块儿」代替「加起来」，「歌」代替「曲目」"
+    },
+    {
+      "id": "cq05",
+      "question": "哪些歌最长？给我前 10 个的名字。",
+      "expect": "rows",
+      "ref_sql": "SELECT Name FROM Track ORDER BY Milliseconds DESC, TrackId LIMIT 10",
+      "tag": "排序限量",
+      "same_as": "q15",
+      "colloquial_how": "「哪些歌最长」代替「时长最长的 10 首」"
+    },
+    {
+      "id": "cq06",
+      "question": "最贵的 5 张发票各是多少钱？",
+      "expect": "rows",
+      "ref_sql": "SELECT Total FROM Invoice ORDER BY Total DESC, InvoiceId LIMIT 5",
+      "tag": "排序限量",
+      "same_as": "q16",
+      "colloquial_how": "「最贵的」代替「金额最高的」，「多少钱」代替「金额」"
+    },
+    {
+      "id": "cq07",
+      "question": "AC/DC 出过哪些专辑？",
+      "expect": "rows",
+      "ref_sql": "SELECT Album.Title FROM Album JOIN Artist ON Album.ArtistId = Artist.ArtistId WHERE Artist.Name = 'AC/DC'",
+      "tag": "连接",
+      "same_as": "q20",
+      "colloquial_how": "「出过哪些」代替「名下的专辑都叫什么名字」，省略了「名字」"
+    },
+    {
+      "id": "cq08",
+      "question": "巴西的客户都叫啥？名字和姓都要。",
+      "expect": "rows",
+      "ref_sql": "SELECT FirstName, LastName FROM Customer WHERE Country = 'Brazil'",
+      "tag": "过滤",
+      "same_as": "q24",
+      "colloquial_how": "「都叫啥」代替「分别是什么」，国家名改成中文"
+    },
+    {
+      "id": "cq09",
+      "question": "哪几个国家的客户最多？给前 5 个。",
+      "expect": "rows",
+      "ref_sql": "SELECT Country, COUNT(*) AS c FROM Customer GROUP BY Country ORDER BY c DESC, Country LIMIT 5",
+      "tag": "分组",
+      "same_as": "q25",
+      "colloquial_how": "「哪几个」代替「是哪几个」，并把限量后置"
+    },
+    {
+      "id": "cq10",
+      "question": "比平均时长还长的歌有多少首？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Track WHERE Milliseconds > (SELECT AVG(Milliseconds) FROM Track)",
+      "tag": "子查询",
+      "same_as": "q28",
+      "colloquial_how": "「比…还长」代替「超过」，「歌」代替「曲目」"
+    },
+    {
+      "id": "cq11",
+      "question": "有多少个歌手是真的出过专辑的？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(DISTINCT ArtistId) FROM Album",
+      "tag": "子查询",
+      "same_as": "q30",
+      "colloquial_how": "「真的出过」代替「至少有一张专辑的」，加了口语强调"
+    },
+    {
+      "id": "cq12",
+      "question": "有多少首歌没写作曲的？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Track WHERE Composer IS NULL",
+      "tag": "空值",
+      "same_as": "q14",
+      "colloquial_how": "「没写」代替「没有填」，省略了主语的「曲目」"
+    },
+    {
+      "id": "cq13",
+      "question": "有哪些歌压根没进过任何播放列表？一共几首？",
+      "expect": "rows",
+      "ref_sql": "SELECT COUNT(*) FROM Track WHERE TrackId NOT IN (SELECT TrackId FROM PlaylistTrack)",
+      "tag": "子查询",
+      "same_as": "q31",
+      "colloquial_how": "「压根没进过」代替「没有出现在」，并拆成两句"
+    },
+    {
+      "id": "cq14",
+      "question": "我这批客户都多大了？",
+      "expect": "unsupported",
+      "ref_sql": null,
+      "tag": "不可答",
+      "same_as": "q34",
+      "colloquial_how": "「都多大了」代替「现在的年龄是多少」",
+      "why": "Customer 表没有出生日期。Employee 表有 BirthDate，客户没有。"
+    },
+    {
+      "id": "cq15",
+      "question": "每个歌手有多少粉丝？",
+      "expect": "unsupported",
+      "ref_sql": null,
+      "tag": "不可答",
+      "same_as": "q36",
+      "colloquial_how": "「歌手」代替「艺术家」，其余口语化程度低",
+      "why": "库里没有粉丝、关注、评分这类表。"
+    }
+  ]
+}

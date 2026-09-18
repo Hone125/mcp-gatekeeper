@@ -1,0 +1,11 @@
+{
+  "n_docs": 40,
+  "n_chunks": 1339,
+  "total_chars": 694005,
+  "avg_chunk_chars": 518,
+  "chunk_target_chars": 500,
+  "sample_checked": 20,
+  "sample_seed": 20260918,
+  "sample_problems": 0,
+  "ok": true
+}

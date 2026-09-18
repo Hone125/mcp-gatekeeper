@@ -1,0 +1,557 @@
+{
+  "deny_cases": 36,
+  "deny_pass": 36,
+  "allow_cases": 13,
+  "allow_pass": 13,
+  "entry_cases": 18,
+  "entry_pass": 18,
+  "deny_rows": [
+    {
+      "label": "完全没有令牌（空串）",
+      "tool": "list_tables",
+      "expect": "NO_TOKEN",
+      "got": "NO_TOKEN",
+      "detail": "缺少 token",
+      "pass": true
+    },
+    {
+      "label": "令牌为 None",
+      "tool": "list_tables",
+      "expect": "NO_TOKEN",
+      "got": "NO_TOKEN",
+      "detail": "缺少 token",
+      "pass": true
+    },
+    {
+      "label": "令牌为整数 0（假值）",
+      "tool": "list_tables",
+      "expect": "NO_TOKEN",
+      "got": "NO_TOKEN",
+      "detail": "缺少 token",
+      "pass": true
+    },
+    {
+      "label": "令牌为空列表（假值）",
+      "tool": "list_tables",
+      "expect": "NO_TOKEN",
+      "got": "NO_TOKEN",
+      "detail": "缺少 token",
+      "pass": true
+    },
+    {
+      "label": "令牌为整数 1（真值但非字符串）",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "DecodeError: Invalid token type. Token must be a <class 'bytes'>",
+      "pass": true
+    },
+    {
+      "label": "令牌为字典（真值但非字符串）",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "DecodeError: Invalid token type. Token must be a <class 'bytes'>",
+      "pass": true
+    },
+    {
+      "label": "普通字符串",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "DecodeError: Not enough segments",
+      "pass": true
+    },
+    {
+      "label": "三段垃圾",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "DecodeError: Invalid header padding",
+      "pass": true
+    },
+    {
+      "label": "只有两个点，末尾签名缺失",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "DecodeError: Not enough segments",
+      "pass": true
+    },
+    {
+      "label": "超长垃圾串",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "DecodeError: Not enough segments",
+      "pass": true
+    },
+    {
+      "label": "alg:none 无签名",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "InvalidAlgorithmError: The specified alg value is not allowed",
+      "pass": true
+    },
+    {
+      "label": "HS512 同密钥（算法白名单应拦下）",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "InvalidAlgorithmError: The specified alg value is not allowed",
+      "pass": true
+    },
+    {
+      "label": "换一个密钥签名",
+      "tool": "list_tables",
+      "expect": "BAD_SIGNATURE",
+      "got": "BAD_SIGNATURE",
+      "detail": "Signature verification failed",
+      "pass": true
+    },
+    {
+      "label": "issuer 不符",
+      "tool": "list_tables",
+      "expect": "BAD_ISSUER",
+      "got": "BAD_ISSUER",
+      "detail": "Invalid issuer",
+      "pass": true
+    },
+    {
+      "label": "audience 不符",
+      "tool": "list_tables",
+      "expect": "BAD_AUDIENCE",
+      "got": "BAD_AUDIENCE",
+      "detail": "Audience doesn't match",
+      "pass": true
+    },
+    {
+      "label": "已过期",
+      "tool": "list_tables",
+      "expect": "TOKEN_EXPIRED",
+      "got": "TOKEN_EXPIRED",
+      "detail": "Signature has expired",
+      "pass": true
+    },
+    {
+      "label": "ttl=0（签发即过期）",
+      "tool": "list_tables",
+      "expect": "TOKEN_EXPIRED",
+      "got": "TOKEN_EXPIRED",
+      "detail": "Signature has expired",
+      "pass": true
+    },
+    {
+      "label": "iat 在未来（客户端时钟快）",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "ImmatureSignatureError: The token is not yet valid (iat)",
+      "pass": true
+    },
+    {
+      "label": "缺 exp",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "MissingRequiredClaimError: Token is missing the \"exp\" claim",
+      "pass": true
+    },
+    {
+      "label": "缺 iss",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "MissingRequiredClaimError: Token is missing the \"iss\" claim",
+      "pass": true
+    },
+    {
+      "label": "缺 aud",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "MissingRequiredClaimError: Token is missing the \"aud\" claim",
+      "pass": true
+    },
+    {
+      "label": "缺 sub",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "MissingRequiredClaimError: Token is missing the \"sub\" claim",
+      "pass": true
+    },
+    {
+      "label": "令牌没有 scope",
+      "tool": "list_tables",
+      "expect": "INSUFFICIENT_SCOPE",
+      "got": "INSUFFICIENT_SCOPE",
+      "detail": "需要 db:read，实际持有 []",
+      "pass": true
+    },
+    {
+      "label": "令牌的 scope 键整个缺失",
+      "tool": "list_tables",
+      "expect": "INSUFFICIENT_SCOPE",
+      "got": "INSUFFICIENT_SCOPE",
+      "detail": "需要 db:read，实际持有 []",
+      "pass": true
+    },
+    {
+      "label": "只有 db:query，却要调 db:read 的工具",
+      "tool": "list_tables",
+      "expect": "INSUFFICIENT_SCOPE",
+      "got": "INSUFFICIENT_SCOPE",
+      "detail": "需要 db:read，实际持有 ['db:query']",
+      "pass": true
+    },
+    {
+      "label": "只有 kb:read，却要调 db:read 的工具",
+      "tool": "list_tables",
+      "expect": "INSUFFICIENT_SCOPE",
+      "got": "INSUFFICIENT_SCOPE",
+      "detail": "需要 db:read，实际持有 ['kb:read']",
+      "pass": true
+    },
+    {
+      "label": "只有 db:read，却要调 db:query 的工具",
+      "tool": "run_sql",
+      "expect": "INSUFFICIENT_SCOPE",
+      "got": "INSUFFICIENT_SCOPE",
+      "detail": "需要 db:query，实际持有 ['db:read']",
+      "pass": true
+    },
+    {
+      "label": "只有 db:read，却要调 kb:read 的工具",
+      "tool": "search_passages",
+      "expect": "INSUFFICIENT_SCOPE",
+      "got": "INSUFFICIENT_SCOPE",
+      "detail": "需要 kb:read，实际持有 ['db:read']",
+      "pass": true
+    },
+    {
+      "label": "size 大小写不符 DB:READ",
+      "tool": "list_tables",
+      "expect": "INSUFFICIENT_SCOPE",
+      "got": "INSUFFICIENT_SCOPE",
+      "detail": "需要 db:read，实际持有 ['DB:READ']",
+      "pass": true
+    },
+    {
+      "label": "用通配符 db:* 冒充 db:read",
+      "tool": "list_tables",
+      "expect": "INSUFFICIENT_SCOPE",
+      "got": "INSUFFICIENT_SCOPE",
+      "detail": "需要 db:read，实际持有 ['db:*']",
+      "pass": true
+    },
+    {
+      "label": "把 scope 写在别的前缀下 read:db",
+      "tool": "list_tables",
+      "expect": "INSUFFICIENT_SCOPE",
+      "got": "INSUFFICIENT_SCOPE",
+      "detail": "需要 db:read，实际持有 ['read:db']",
+      "pass": true
+    },
+    {
+      "label": "scope claim 是数字而不是字符串",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "AttributeError: 'int' object has no attribute 'split'",
+      "pass": true
+    },
+    {
+      "label": "scope claim 是列表而不是字符串",
+      "tool": "list_tables",
+      "expect": "INVALID_TOKEN",
+      "got": "INVALID_TOKEN",
+      "detail": "AttributeError: 'list' object has no attribute 'split'",
+      "pass": true
+    },
+    {
+      "label": "工具名未登记",
+      "tool": "no_such_tool",
+      "expect": "UNKNOWN_TOOL",
+      "got": "UNKNOWN_TOOL",
+      "detail": "未登记的工具 'no_such_tool'",
+      "pass": true
+    },
+    {
+      "label": "工具名为空串",
+      "tool": "",
+      "expect": "UNKNOWN_TOOL",
+      "got": "UNKNOWN_TOOL",
+      "detail": "未登记的工具 ''",
+      "pass": true
+    },
+    {
+      "label": "工具名大小写不符 Run_SQL",
+      "tool": "Run_SQL",
+      "expect": "UNKNOWN_TOOL",
+      "got": "UNKNOWN_TOOL",
+      "detail": "未登记的工具 'Run_SQL'",
+      "pass": true
+    }
+  ],
+  "allow_rows": [
+    {
+      "label": "db:read 调 list_tables",
+      "tool": "list_tables",
+      "note": "",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "db:read 调 get_schema",
+      "tool": "get_schema",
+      "note": "",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "db:query 调 run_sql",
+      "tool": "run_sql",
+      "note": "",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "db:query 调 ask_database",
+      "tool": "ask_database",
+      "note": "",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "kb:read 调 search_passages",
+      "tool": "search_passages",
+      "note": "",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "kb:read 调 get_passage",
+      "tool": "get_passage",
+      "note": "",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "三种 scope 全给，调 list_tables",
+      "tool": "list_tables",
+      "note": "scope 是「持有集合」语义，多给不该变成拒绝",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "多给一个无关 scope，调 run_sql",
+      "tool": "run_sql",
+      "note": "同上",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "scope 重复写两遍，调 list_tables",
+      "tool": "list_tables",
+      "note": "去重后仍然放行",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "scope 前后有空格",
+      "tool": "list_tables",
+      "note": "split() 会吃掉空白",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "令牌额外带了未知 claim（role=admin）",
+      "tool": "list_tables",
+      "note": "未知 claim 被忽略，不影响裁决",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "sub 是空字符串",
+      "tool": "list_tables",
+      "note": "⚠️ 值得注意：require 只查键存在、不查值非空，所以空 sub 会放行",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    },
+    {
+      "label": "列表元素里含空格（db:read db:query）",
+      "tool": "list_tables",
+      "note": "scope 在令牌里是空格分隔的（RFC 6749），所以带空格的元素**本来就等于两个 scope**，不是注入也不是漏检。这条原本被我写成应拒用例，跑出来发现是期望写错了，照实改成放行并留在这里。",
+      "got": "（放行）",
+      "detail": "",
+      "pass": true
+    }
+  ],
+  "entry_rows": [
+    {
+      "tool": "list_tables",
+      "case": "无令牌",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "list_tables",
+      "case": "scope 不足",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "list_tables",
+      "case": "令牌齐全",
+      "expect": "不拒绝",
+      "got": "不拒绝；业务层：ok",
+      "pass": true
+    },
+    {
+      "tool": "get_schema",
+      "case": "无令牌",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "get_schema",
+      "case": "scope 不足",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "get_schema",
+      "case": "令牌齐全",
+      "expect": "不拒绝",
+      "got": "不拒绝；业务层：ok",
+      "pass": true
+    },
+    {
+      "tool": "run_sql",
+      "case": "无令牌",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "run_sql",
+      "case": "scope 不足",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "run_sql",
+      "case": "令牌齐全",
+      "expect": "不拒绝",
+      "got": "不拒绝；业务层：ok",
+      "pass": true
+    },
+    {
+      "tool": "search_passages",
+      "case": "无令牌",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "search_passages",
+      "case": "scope 不足",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "search_passages",
+      "case": "令牌齐全",
+      "expect": "不拒绝",
+      "got": "不拒绝；业务层：ok",
+      "pass": true
+    },
+    {
+      "tool": "get_passage",
+      "case": "无令牌",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "get_passage",
+      "case": "scope 不足",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "get_passage",
+      "case": "令牌齐全",
+      "expect": "不拒绝",
+      "got": "不拒绝；业务层：ok",
+      "pass": true
+    },
+    {
+      "tool": "ask_database",
+      "case": "无令牌",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "ask_database",
+      "case": "scope 不足",
+      "expect": "拒绝",
+      "got": "拒绝",
+      "pass": true
+    },
+    {
+      "tool": "ask_database",
+      "case": "令牌齐全",
+      "expect": "不拒绝",
+      "got": "未调用（放行后会去调模型，本实验不调模型）",
+      "pass": true,
+      "skipped": true
+    }
+  ],
+  "notable": [
+    {
+      "item": "HS512 用同一个密钥签，报的是 INVALID_TOKEN 而不是 BAD_SIGNATURE",
+      "observed": "INVALID_TOKEN",
+      "why": "算法白名单在验签之前就拒了，连签名都没看。拒得对，只是错误码偏向「令牌不合法」而非「签名不对」。调用方若按 BAD_SIGNATURE 做分支要注意。"
+    },
+    {
+      "item": "iat 比服务端快 10 分钟就被拒",
+      "observed": "INVALID_TOKEN",
+      "why": "PyJWT 默认校验 iat。真实部署里客户端时钟快一点就会拿到这个错误。这是实测行为，不是猜测；本仓库不改它，只把它写清楚。"
+    },
+    {
+      "item": "sub 为空字符串仍然放行",
+      "observed": "（放行）",
+      "why": "`options={'require': [...]}` 只检查 claim 键存在，不检查值非空。本仓库接受这一点（sub 的取值语义属于调用方），但必须写明，免得被读成「sub 一定非空」的保证。"
+    },
+    {
+      "item": "scope 重复写不影响结果",
+      "observed": "（放行）",
+      "why": "scope 解析成集合，重复项被去重。"
+    }
+  ],
+  "n_cases": 49,
+  "n_pass": 49
+}
