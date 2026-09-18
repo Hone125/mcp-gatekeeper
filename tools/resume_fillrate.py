@@ -68,9 +68,13 @@ def export(html: Path) -> tuple[bool, str]:
     out = html.with_suffix(".pdf")
     cmd = [exe, "--headless", "--disable-gpu", "--no-pdf-header-footer",
            f"--print-to-pdf={out}", html.as_uri()]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    # ★ 这里**不要** `text=True`：那会让 Python 按系统 ANSI 代码页（本机是 GBK）
+    #   去解 Chrome 的 UTF-8 stderr，于是导出明明成功，终端里却先蹦一串解码报错，
+    #   看着像导出坏了。收字节、要带话时自己按 utf-8 解，解不动就替换。
+    r = subprocess.run(cmd, capture_output=True, timeout=300)
     if r.returncode != 0:
-        return False, f"Chrome 退出码 {r.returncode}"
+        line = (r.stderr.decode("utf-8", "replace").strip().splitlines() or [""])[-1]
+        return False, f"Chrome 退出码 {r.returncode}：{line[:160]}"
     return True, "已重新导出"
 
 

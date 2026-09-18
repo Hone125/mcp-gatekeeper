@@ -103,6 +103,34 @@ def test_a_pass_is_a_pass_even_when_the_run_had_output():
     assert vk.judge_exit(_llm_entry(), 0, ROOT, "errors: 0").status == vk.PASS
 
 
+def test_every_entry_that_needs_the_sample_db_declares_the_no_db_alternative():
+    """★ 查示例库的那些入口，必须声明「库没建」这条合法口径。
+
+    示例库是构建产物、按设计不入库（源 SQL 随仓库分发）。新 clone 一台机器上
+    它们会以 3 结束并写明「[未完成] 示例库还没构建」—— 脚本自己说的是「未完成」，
+    台账要是不声明这条口径，就会把同一件事写成 `FAIL 退出码 3，期望 0`：
+    把一个**没做**说成**做坏了**。这一条钉住那份声明不被悄悄摘掉。
+
+    ★ 名单**不写死**：谁声明了 `E_NO_DB` 就归谁管，直接从脚本源码里读。
+      写死名单的话，将来新增一个查库的脚本不会被这条测试发现。
+    """
+    needs_db = {p for p in (ROOT / "experiments").glob("*.py")
+                if "E_NO_DB" in p.read_text(encoding="utf-8")}
+    assert needs_db, "一个声明 E_NO_DB 的脚本都没找到 —— 这条测试失去了对象"
+    checked = 0
+    for entry in vk.EXIT_LEDGER:
+        script = ROOT / entry["cmd"][0]
+        if script not in needs_db:
+            continue
+        checked += 1
+        assert entry.get("alt", {}).get(vk.NO_DB_EXIT), \
+            f"{entry['cmd']} 查示例库却没声明「库没建」的口径"
+        r = vk.judge_exit(entry, vk.NO_DB_EXIT, ROOT)
+        assert r.status == vk.SKIP, (entry["cmd"], r.status)
+        assert "未完成" in r.detail, (entry["cmd"], r.detail)
+    assert checked >= 5, f"只查到 {checked} 条查库的入口 —— 少了就是名单算错了"
+
+
 def test_an_author_machine_path_in_the_quoted_output_never_reaches_the_report():
     """★ 这段尾巴是**引用**，会被原样抄进 `reports/verify.md`。
 

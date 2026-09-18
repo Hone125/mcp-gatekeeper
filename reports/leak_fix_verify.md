@@ -14,18 +14,18 @@
 
 | # | 查的是哪一份 | sha256（前 12 位） | 命中条目数 | 出现次数 | 判定 |
 |---|---|---|---|---|---|
-| 1 | 工作区 `mcp_server/selfcheck.py` | `12bc32b05808` | 0 | 0 | PASS |
+| 1 | 工作区 `mcp_server/selfcheck.py` | `6〔已隐去〕89bf3373` | 0 | 0 | PASS |
 | 负控甲 | 三段已知含词的合成样本 | `-` | 5 | 5 | PASS |
 | 负控乙 | 修复前那一版里的同一个文件 | `79a2845be577` | 50 | 88 | PASS |
-| 2 | 公网 raw 上的同一个文件 | `12bc32b05808` | 0 | 0 | PASS |
-| 3 | 本地与公网是不是**同一份** | `12bc32b05808` | 0 | 0 | PASS |
+| 2 | 公网 raw 上的同一个文件 | `6〔已隐去〕89bf3373` | 0 | 0 | PASS |
+| 3 | 本地与公网是不是**同一份** | `6〔已隐去〕89bf3373` | 0 | 0 | PASS |
 
 ## 逐条
 
 ### 1 工作区 `mcp_server/selfcheck.py` —— PASS
 
 - **口径**：读工作区那份文件，用整张词表做子串扫描
-- **sha256**：`12bc32b058080855bad3f32b374f10ced72b9d23d8d35cc976207ff631ddfd9a`
+- **sha256**：`6〔已隐去〕89bf33730b330d87329421ddb940f9dde802320a6130347780440e0a29eb`
 - **命中条目数**：0；**出现次数**：0
 
 ### 负控甲 三段已知含词的合成样本 —— PASS
@@ -44,14 +44,14 @@
 
 ### 2 公网 raw 上的同一个文件 —— PASS
 
-- **口径**：`curl.exe -s https://raw.githubusercontent.com/Hone125/mcp-guarded-toolkit/main/mcp_server/selfcheck.py`（退回 urllib），同一张词表
-- **sha256**：`12bc32b058080855bad3f32b374f10ced72b9d23d8d35cc976207ff631ddfd9a`
+- **口径**：`curl.exe -s https://raw.githubusercontent.com/Hone125/mcp-gatekeeper/main/mcp_server/selfcheck.py`（退回 urllib），同一张词表
+- **sha256**：`6〔已隐去〕89bf33730b330d87329421ddb940f9dde802320a6130347780440e0a29eb`
 - **命中条目数**：0；**出现次数**：0
 
 ### 3 本地与公网是不是**同一份** —— PASS
 
 - **口径**：比两边的 sha256。相同 = 公网上那份就是本地这份
-- **sha256**：`12bc32b058080855bad3f32b374f10ced72b9d23d8d35cc976207ff631ddfd9a`
+- **sha256**：`6〔已隐去〕89bf33730b330d87329421ddb940f9dde802320a6130347780440e0a29eb`
 - **命中条目数**：0；**出现次数**：0
 
 ## 读不到词表时会怎样（★ 这一条和上面三条同等重要）
@@ -74,8 +74,8 @@
 
 | 被重写又还原的文件 | 跑之前 sha256 | 跑完 sha256 | 还原 |
 |---|---|---|---|
-| `reports/verify.md` | `e114585fbfe1` | `e114585fbfe1` | 是 |
-| `reports/final_selfcheck.md` | `a7c85538087f` | `a7c85538087f` | 是 |
+| `reports/verify.md` | `4f121d384ba7` | `4f121d384ba7` | 是 |
+| `reports/final_selfcheck.md` | `bc73c835ab70` | `bc73c835ab70` | 是 |
 
 - 代价说清：还原发生在**子进程跑完之后**。要是那一步中途被强杀（比如手工 Ctrl+C），这两份报告会停在降级状态 —— 重跑一次闸门即可复原，`git status` 会明确告诉你有哪两份被改过
 - 还有一条**没有**被这层还原覆盖：`27` 自己写的 `reports/leak_fix_verify.md`。它是本脚本的产物，本来就该被改写

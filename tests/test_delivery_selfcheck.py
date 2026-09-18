@@ -67,16 +67,30 @@ def test_tool_count_must_be_exactly_six_everywhere(monkeypatch, tmp_path,
 
 # -------------------------------------------------------------- 第 15 项
 
-def test_history_residue_passes_when_residue_is_still_there():
+def test_history_residue_passes_when_residue_is_still_there(monkeypatch):
     """真实仓库：修复前的提交还在、那份文件里那些字面量还查得到 → PASS。
 
     ★ 这一条**必须有词表**才有意义：扫描用的是词表那三张表，词表读不到时
     扫什么都是 0 命中，于是「命中 > 0 才算过」这条判据会把一个**空扫描**
     读成「历史已经被重写过」。clone 下来（词表按设计不在仓库里）就是这个情形 ——
     所以这里判 SKIP，不是红：**没有实测依据**，既不是通过也不是失败（D-44）。
+
+    ★ 第二个 SKIP 口子是**迁仓之后**才有的（D-54）：新仓的历史自一条初始提交
+    起算，那段旧历史根本不在新 clone 的机器上，于是「那一版里还读得出那些字」这件事
+    **没有对象可测** —— 被测函数这时判 SKIP（照实说明理由），本条用例跟着判 SKIP。
+    条件写得**很窄**：只有「本机取不回那一版」**且**「本机历史不超过一条」才跳。
+    维护者本机（历史 > 1 笔）上它照样必须 PASS，所以将来若有人把第 15 项改成
+    「永远 SKIP」，这一条仍然会红。SKIP 那条分支本身另有
+    `test_history_residue_is_skip_when_the_old_history_is_not_here` 钉住。
     """
     if not sc.WORDLIST_AVAILABLE:
         pytest.skip("词表不在本机（仓外文件）：扫出来必然是 0 命中，本项没有实测依据")
+    v27 = _patched_27(monkeypatch)
+    pre, _ = paths.pre_fix_commit()
+    n_all = v27._rev_count()
+    if pre and not v27.pre_fix_text(pre) and n_all <= 1:
+        pytest.skip(f"本机只有 {n_all} 笔提交（新仓的正常状态）：那段旧历史不在本机，"
+                    f"这一版取不回来 —— 本项没有实测依据，既不是通过也不是失败")
     item = dsc.check_15_history_residue()
     assert item.status == dsc.PASS, (item.status, item.note, item.hits)
     assert "命中" in item.note and "只读" in item.note

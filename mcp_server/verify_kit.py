@@ -37,7 +37,25 @@ from mcp_server import selfcheck as sc
 
 PASS, FAIL, SKIP, ERROR = "PASS", "FAIL", "SKIP", "ERROR"
 NO_LLM_EXIT = 5
+NO_DB_EXIT = 3
 BLOCKERS = "BLOCKERS.md"
+
+# 「示例库还没构建」这一条的合法口径。
+#
+# `chinook.db` 是**构建产物**、按设计不入库：源 SQL 随仓库分发，
+# `python experiments/01_build_db.py` 一步就能建出来（不需要联网、不需要凭据）。
+# 于是新 clone 一台机器上，凡是查这个库的入口脚本都会以 3 结束
+# （脚本文件头里写的 `E_NO_DB = 3`，`mcp_server/guardrails.py` 里同一个值），
+# 并在输出里写明「[未完成] 示例库还没构建」。
+#
+# 这**不是失败**：脚本自己说的是「未完成」，台账照抄同一个口径，
+# 用的是本表早就有的 `alt`（同 `12_cost_report` 的退出码 5、以及 25 早先那一条）。
+# ★ `expect` 仍然是 0，一个字没松：维护者本机建了库，这几条依旧按 0 判，
+#   真退 3 就说明库真没建，报告里会以 SKIP 摆出来（SKIP 计入「未完成」，
+#   不计入 PASS —— 「没跑」不许被读成「干净」）。
+NO_DB_ALT = {NO_DB_EXIT: "示例库还没构建（源 SQL 随仓库分发，"
+                         "`python experiments/01_build_db.py` 一步即可建，不需要联网）"
+                         " —— 未完成，非失败"}
 
 
 class Result:
@@ -69,37 +87,46 @@ class Result:
 EXIT_LEDGER: list[dict] = [
     {"cmd": ["experiments/10_auth_test.py"], "expect": 0,
      "why": "鉴权矩阵：应拒 / 应放行 / 入口一致性三组用例都要全过"},
-    {"cmd": ["experiments/11_guardrail_test.py"], "expect": 0,
+    {"cmd": ["experiments/11_guardrail_test.py"], "expect": 0, "alt": NO_DB_ALT,
      "why": "护栏负例矩阵：每条负例都要给出期望 / 实测 / 退出码"},
     {"cmd": ["experiments/08_mcp_smoke.py"], "expect": 0,
      "why": "真实 stdio 握手：协议用例 + 超时用例"},
     {"cmd": ["experiments/09_text2sql_eval.py", "--check-questions"], "expect": 0,
+     "alt": NO_DB_ALT,
      "why": "参考解核验：不需要 LLM，任何时候都必须过"},
     {"cmd": ["experiments/13_text2sql_colloquial.py", "--check-questions"],
-     "expect": 0, "why": "口语题集核验：同上，另加「参考 SQL 与正式题逐字相同」"},
+     "expect": 0, "alt": NO_DB_ALT,
+     "why": "口语题集核验：同上，另加「参考 SQL 与正式题逐字相同」"},
     {"cmd": ["experiments/09_text2sql_eval.py", "--fake", "oracle"], "expect": 0,
+     "alt": NO_DB_ALT,
      "why": "假模型自检：满分模型必须拿满分，否则是评分有 bug"},
     {"cmd": ["experiments/09_text2sql_eval.py", "--fake", "naive"], "expect": 0,
+     "alt": NO_DB_ALT,
      "why": "假模型自检：故意答错必须拿不到分，否则是评分太松"},
     {"cmd": ["experiments/13_text2sql_colloquial.py", "--fake", "oracle"],
-     "expect": 0, "why": "口语链路的假模型自检"},
+     "expect": 0, "alt": NO_DB_ALT, "why": "口语链路的假模型自检"},
     {"cmd": ["experiments/21_noise_band.py", "--fake", "stable"], "expect": 0,
+     "alt": NO_DB_ALT,
      "why": "噪声带尺子正控：两遍完全一样时必须量出 0"},
     {"cmd": ["experiments/21_noise_band.py", "--fake", "jitter"], "expect": 0,
+     "alt": NO_DB_ALT,
      "why": "噪声带尺子负控：第二遍故意抖 3 题，必须正好量出 3"},
     {"cmd": ["experiments/20_pair_test.py", "--selftest"], "expect": 0,
      "why": "配对统计与措辞自检：合成数据，7 组"},
     {"cmd": ["experiments/09_text2sql_eval.py"], "expect": 0, "needs_llm": True,
      "not_run": "reports/text2sql_NOT_RUN.md",
      "result": "reports/text2sql_results.v3.json",
+     "alt": NO_DB_ALT,
      "why": "Text2SQL 36 题 × 3 版（需要模型凭据）"},
     {"cmd": ["experiments/13_text2sql_colloquial.py"], "expect": 0, "needs_llm": True,
      "not_run": "reports/colloquial_NOT_RUN.md",
      "result": "reports/colloquial_vs_formal.json",
+     "alt": NO_DB_ALT,
      "why": "口语 vs 正式对照（需要模型凭据）"},
     {"cmd": ["experiments/21_noise_band.py"], "expect": 0, "needs_llm": True,
      "not_run": "reports/noise_band_NOT_RUN.md",
      "result": "reports/noise_band.json",
+     "alt": NO_DB_ALT,
      "why": "实测噪声带（需要模型凭据）"},
     {"cmd": ["experiments/12_cost_report.py"], "expect": 0,
      "not_run": "reports/cost_report.md",
