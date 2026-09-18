@@ -56,7 +56,7 @@
 
 - **判据**：把远端 `main` 上的 `mcp_server/selfcheck.py` 原样拉下来，用**同一套**词表扫描 —— 本地干净不等于公网干净，这一项就是那两者的差值
 - **命令**：`curl.exe -s <raw url>/mcp_server/selfcheck.py`
-- **备注**：urllib（HTTP 200）
+- **备注**：curl.exe（HTTP 200）
 - **违规明细**：无
 
 ### 5 交付物里没有仓库标识与旧数字 —— PASS（违规 0）
@@ -110,14 +110,14 @@
 
 - **判据**：跑 `python -m pytest -q`，只看退出码。**条数变化必须逐条说明**（新增用例写清为什么加、删的写清为什么删），所以条数也一并记在这里
 - **命令**：`python -m pytest -q`
-- **备注**：599 条通过；条数变化的逐条说明见 PROGRESS.md
+- **备注**：601 条通过；条数变化的逐条说明见 PROGRESS.md
 - **违规明细**：无
 
 ### 13 远端 main 的 sha == 本地 HEAD —— PASS（违规 0）
 
 - **判据**：用 GitHub API 读远端 `main` 的 sha，与本地 `git rev-parse HEAD` 比对 —— 「我推上去了」这句话的机械判据。**不是**比对时间戳：时钟不可复现（D-38）
 - **命令**：`GET api.github.com/repos/.../commits/main`
-- **备注**：本地指纹 2e334a62648a / 远端指纹 2e334a62648a（**为什么不写提交号**：见 `selfcheck.sha_fingerprint`）
+- **备注**：本地指纹 511e067dcf8f / 远端指纹 511e067dcf8f（**为什么不写提交号**：见 `selfcheck.sha_fingerprint`）
 - **违规明细**：无
 
 ### 14 PDF 是 2 页 —— PASS（违规 0）

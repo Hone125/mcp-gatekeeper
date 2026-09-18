@@ -38,7 +38,7 @@
       "cmd": "curl.exe -s <raw url>/mcp_server/selfcheck.py",
       "status": "PASS",
       "n_hits": 0,
-      "note": "urllib（HTTP 200）",
+      "note": "curl.exe（HTTP 200）",
       "hits": []
     },
     {
@@ -118,7 +118,7 @@
       "cmd": "python -m pytest -q",
       "status": "PASS",
       "n_hits": 0,
-      "note": "599 条通过；条数变化的逐条说明见 PROGRESS.md",
+      "note": "601 条通过；条数变化的逐条说明见 PROGRESS.md",
       "hits": []
     },
     {
@@ -128,7 +128,7 @@
       "cmd": "GET api.github.com/repos/.../commits/main",
       "status": "PASS",
       "n_hits": 0,
-      "note": "本地指纹 2e334a62648a / 远端指纹 2e334a62648a（**为什么不写提交号**：见 `selfcheck.sha_fingerprint`）",
+      "note": "本地指纹 511e067dcf8f / 远端指纹 511e067dcf8f（**为什么不写提交号**：见 `selfcheck.sha_fingerprint`）",
       "hits": []
     },
     {
