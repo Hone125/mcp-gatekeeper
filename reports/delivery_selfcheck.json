@@ -78,7 +78,7 @@
       "cmd": "扫 DELIVERY_RESUME_DIR 下的 HTML",
       "status": "PASS",
       "n_hits": 0,
-      "note": "https://github.com/Hone125/mcp-guarded-toolkit 在 MCP 条里出现 1 次",
+      "note": "https://github.com/Hone125/mcp-gatekeeper 在 MCP 条里出现 1 次",
       "hits": []
     },
     {
@@ -118,7 +118,7 @@
       "cmd": "python -m pytest -q",
       "status": "PASS",
       "n_hits": 0,
-      "note": "598 条通过；条数变化的逐条说明见 PROGRESS.md",
+      "note": "599 条通过；条数变化的逐条说明见 PROGRESS.md",
       "hits": []
     },
     {
@@ -128,7 +128,7 @@
       "cmd": "GET api.github.com/repos/.../commits/main",
       "status": "PASS",
       "n_hits": 0,
-      "note": "本地指纹 c5a99db2f121 / 远端指纹 c5a99db2f121（**为什么不写提交号**：见 `selfcheck.sha_fingerprint`）",
+      "note": "本地指纹 2e334a62648a / 远端指纹 2e334a62648a（**为什么不写提交号**：见 `selfcheck.sha_fingerprint`）",
       "hits": []
     },
     {

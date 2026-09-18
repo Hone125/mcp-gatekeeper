@@ -83,7 +83,7 @@
 
 - **判据**：MCP 那一条里必须出现**本仓地址**（**带不带协议头都算**），且**那一条**里不许出现指向另一个仓库的 github 地址（别的条目的仓库链接不管 —— 那是另一个项目）。本仓地址由 `mcp_server/paths.py` 现算（环境变量 → `origin` → 仓外留档），**这里不写死**：写死的话换地址要改两处，漏一处的表现是「检查照跑、只是查的是另一个仓库」
 - **命令**：`扫 DELIVERY_RESUME_DIR 下的 HTML`
-- **备注**：https://github.com/Hone125/mcp-guarded-toolkit 在 MCP 条里出现 1 次
+- **备注**：https://github.com/Hone125/mcp-gatekeeper 在 MCP 条里出现 1 次
 - **违规明细**：无
 
 ### 9 交付物里没有金额字样 —— PASS（违规 0）
@@ -110,14 +110,14 @@
 
 - **判据**：跑 `python -m pytest -q`，只看退出码。**条数变化必须逐条说明**（新增用例写清为什么加、删的写清为什么删），所以条数也一并记在这里
 - **命令**：`python -m pytest -q`
-- **备注**：598 条通过；条数变化的逐条说明见 PROGRESS.md
+- **备注**：599 条通过；条数变化的逐条说明见 PROGRESS.md
 - **违规明细**：无
 
 ### 13 远端 main 的 sha == 本地 HEAD —— PASS（违规 0）
 
 - **判据**：用 GitHub API 读远端 `main` 的 sha，与本地 `git rev-parse HEAD` 比对 —— 「我推上去了」这句话的机械判据。**不是**比对时间戳：时钟不可复现（D-38）
 - **命令**：`GET api.github.com/repos/.../commits/main`
-- **备注**：本地指纹 c5a99db2f121 / 远端指纹 c5a99db2f121（**为什么不写提交号**：见 `selfcheck.sha_fingerprint`）
+- **备注**：本地指纹 2e334a62648a / 远端指纹 2e334a62648a（**为什么不写提交号**：见 `selfcheck.sha_fingerprint`）
 - **违规明细**：无
 
 ### 14 PDF 是 2 页 —— PASS（违规 0）
