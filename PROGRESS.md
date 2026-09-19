@@ -1477,11 +1477,25 @@ python tools/resume_fillrate.py
 3. 退出码：本轮 `pytest` 退出码是 **0**。本机那个安全钩子偶尔会拦住临时目录清理，
    造成「断言全绿、退出码 1」；真出现时按 D-42 记原始读数，**不写成 FAIL、也不写成 PASS**。
 4. `reports/` 三份产物由脚本重跑刷新（D-51，不手改）：`verify.md` 的 P1 601 → 604；
-   `deliverable_check.md` 的 G4 命令条数 67 → 68（D-55 里新引用了一条命令，检查确认它存在）；
+   `deliverable_check.md` 的 G4 命令条数 **67 → 71**（本轮新增的引用共 **4 条**，
+   逐条都确认过脚本与参数真的存在：本节验证表的 `tools/check.py`、本节填充率的
+   `tools/resume_fillrate.py`、`DECISIONS.md` D-55 的 `tools/resume_fillrate.py`、
+   以及**下面第 6 点自己写进去的那条** `experiments/25_deliverable_check.py`）。
+   ★ 最后那一条是**记账行为自己带来的 +1**，特此写明，不静默吸收；
+   同一份报告里 G7 的引用数 **24 → 25**（第 6 点提到了 `reports/deliverable_check.json`，
+   取证时它确实存在，所以「文件存在」那一档 20 → 21）；
    `leak_fix_verify.md` 里随之更新的 sha。
 5. `28 --online` 报告里两边指纹从 `511e067dcf8f` 变成 `3ee187253402`（**指纹不是提交号**，
    理由见 `selfcheck.sha_fingerprint`）：原因是 HEAD 比上一轮前进了一笔（远端那一笔改的是
    README，本地这一笔是本轮改动）。**本地与远端仍相同**，第 13 项照旧 PASS。
+6. ★ `reports/deliverable_check.json` **此前一直没跟上**（2026-09-19 复核时发现）。
+   它停在初始提交，内容还是「25 条命令」、G5/G6 判 `SKIP`「README.md 尚未创建」——
+   而仓库早就有 README、命令数也早不是 25。原因是 `experiments/25_deliverable_check.py`
+   的 `--json` 是**可选开关**，而 `tools/check.py` 调它时**不带**这个开关，
+   于是 `.md` 每轮都刷、`.json` 永远不动。本轮补跑一次
+   `python experiments/25_deliverable_check.py --json` 让它对齐。
+   它**不被任何文档引用**（G7 扫的是文档里出现的报告名，扫不到它），所以此前没有让红线变红；
+   但它是公开仓里一份**内容与现状相反**的产物，读的人会先信它。
 
 ### 同批做的台账校准（旧读数一律保留在批注里，不覆盖）
 

@@ -32,16 +32,16 @@
       "title": "文档里的命令都成立",
       "caliber": "扫描全部 `.md` 里的 `python 某某.py …`：脚本要在、用到的 `--flag` 要在源码文本里出现",
       "status": "PASS",
-      "detail": "25 条命令，脚本与参数全部对得上",
+      "detail": "71 条命令，脚本与参数全部对得上",
       "n_hits": 0,
       "hits": []
     },
     {
       "id": "G5",
       "title": "README 工具表与 TOOL_SCOPES 一致",
-      "caliber": "双向比对：README 表里的名字集合 == `auth.TOOL_SCOPES` 的键集合",
-      "status": "SKIP",
-      "detail": "README.md 尚未创建（阶段 6）",
+      "caliber": "双向比对：README 表里的名字集合 == `auth.TOOL_SCOPES` 的键集合，且每行的 scope 也要一致",
+      "status": "PASS",
+      "detail": "6 个工具，名字与 scope 全部一致",
       "n_hits": 0,
       "hits": []
     },
@@ -49,8 +49,8 @@
       "id": "G6",
       "title": "README 提到的仓库内路径都存在",
       "caliber": "只查仓库内的相对路径；外链/锚点/通配符/占位符跳过",
-      "status": "SKIP",
-      "detail": "README.md 尚未创建（阶段 6）",
+      "status": "PASS",
+      "detail": "15 个仓库内路径，全部存在",
       "n_hits": 0,
       "hits": []
     },
@@ -59,7 +59,7 @@
       "title": "文档引用的报告都存在（或当场说明未生成）",
       "caliber": "全仓文档里出现的 `reports/*.md|json|jsonl` 逐条查存在性；不存在的，若**同一个自然段**里写了「未生成 / 尚未 / 未完成 / 阶段 6 / 不存在 / 被创建 / 生成后 / 将由」之一则算已交代",
       "status": "PASS",
-      "detail": "11 处引用：6 处文件存在、5 处当场说明未生成",
+      "detail": "25 处引用：21 处文件存在、4 处当场说明未生成",
       "n_hits": 0,
       "hits": []
     },
