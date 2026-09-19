@@ -13,7 +13,7 @@
 | 5 | 评测 harness 与自检 | 已完成 | `mcp_server/{selfcheck,verify_kit,deliverable_kit}.py`、`experiments/{19_verify,25_deliverable_check}.py`、`tools/check.py`、`reports/{verify,deliverable_check}.md`、`docs/design.md` | — |
 | 6 | 文档、许可、收尾自检 | 已完成 | `README.md` `RESULTS.md` `experiments/26_final_selfcheck.py`、`reports/final_selfcheck.md` | — |
 | 7 | 发布准备 | **已完成：已推送到 `Hone125/mcp-guarded-toolkit`**（2026-09-18） | `BLOCKERS.md`（卡点 2 的探测记录保留，状态改为已解除） | — |
-| 8 | 迁移准备：编号搬出仓库、地址收成一处、负控改成两条证据 | **进行中**：本地这三步已完成（见「迁移准备（2026-09-19）」）；「建新仓 → 推 → 旧仓转私有」是**用户闸门** | `mcp_server/paths.py`、`experiments/27_leak_fix_verify.py`、`mcp_server/delivery_selfcheck.py`、`DECISIONS.md` D-54 | 用户给新仓地址后推快照、换 `origin` |
+| 8 | 迁移准备：编号搬出仓库、地址收成一处、负控改成两条证据 | **已完成**（2026-09-19）：本地三步见「迁移准备（2026-09-19）」；「建新仓 → 推快照 → 旧仓转私有」两处**用户闸门均已执行**，见「迁移本身（2026-09-19）」与本文件「十一、闸门 5 已由用户执行」 | `mcp_server/paths.py`、`experiments/27_leak_fix_verify.py`、`mcp_server/delivery_selfcheck.py`、`DECISIONS.md` D-54 | — |
 
 ## 已知的中间态（不是缺陷）
 
@@ -1138,9 +1138,9 @@ Python 会按**系统 ANSI 代码页**（本机是 GBK）去解那段 UTF-8 —�
 |---|---|---|---|
 | 0 | 核基线 + 建台账 | **已完成** | 本节 |
 | 1 | 拆掉 `selfcheck.py` 里的「明文桥」：词表外置到仓外，读不到判 SKIP | **已完成** | `mcp_server/selfcheck.py`、仓外词表、`reports/leak_fix_verify.md` |
-| 2 | 简历 4.0.html：MCP 条换数字与链接、删掉与实习链路的互指 | **已完成** | `4.0.html`、`DECISIONS.md` D-48 |
-| 3 | 量填充率 + 导出 2 页 PDF | **已完成** | `4.0.pdf`、`tools/resume_fillrate.py` |
-| 4 | 覆盖写版本说明（第 10 版） | **已完成** | `版本说明-投递前先看这个.txt` |
+| 2 | 简历 4.0.html：MCP 条换数字与链接、删掉与实习链路的互指 | **已完成** | `4.0.html`、`DECISIONS.md` D-48 〔★ 2026-09-19 复核：交付物已换到带新标签的一版；标签只在 `delivery_selfcheck.RESUME_TAG` 一处定义（D-55）。本行的 `4.0.html` 是当时那版的产物名，**保留**〕 |
+| 3 | 量填充率 + 导出 2 页 PDF | **已完成** | `4.0.pdf`、`tools/resume_fillrate.py` 〔★ 2026-09-19 复核：同上；`4.0.pdf` 是当时那版的产物名，**保留** —— 它是本轮改动的对照物〕 |
+| 4 | 覆盖写版本说明（第 10 版） | **已完成** | `版本说明-投递前先看这个.txt` 〔★ 2026-09-19 复核：该文件已到第 11 版，本行记的是当时那一版〕 |
 | 5 | 闸门 + pytest + 提交 + 推送 + 公网复核 | **已完成**（含一轮收尾，见「阶段 5 收尾」） | `reports/final_selfcheck.md` 新增一节、`reports/leak_fix_verify.md` |
 | 6 | ★ **停手点**：历史残留写进 `BLOCKERS.md`，不执行任何重写 | **停手（按任务书，不回退）** | `BLOCKERS.md` 卡点 4 |
 
@@ -1413,3 +1413,77 @@ D-49 那一轮记的是 567 / 547+20，是同一件事在加这 3 条用例之�
 
 **基线这一栏的用处**：阶段 1 做完之后 `pytest` 的条数会变（多出机械钉住词表位置的新用例），
 **每一处增减都要在阶段 5 逐条说明**，而不是把新数字往这里一贴了事。
+
+---
+
+## 选择器标签收成一处（2026-09-19）
+
+**这一轮改什么**：交付物检查按**文件名里的版本标签**认交付物，那个标签原来写死在 9 处
+（3 个文件），简历换到新版之后一处没改 —— 于是第 5~10 项与第 14 项一直去查**已作废的那一份**，
+而且**照样报绿**。本轮把标签收成**一处定义**（`mcp_server/delivery_selfcheck.py` 的 `RESUME_TAG`），
+其余 8 处改为引用它。**判定口径一个字没改**（带该标签的必须恰好一个，0 个或多个都报错）。
+理由、取舍、不做环境变量覆盖的原因见 `DECISIONS.md` D-55。
+
+### 改之前实测到的病灶（未改动的代码）
+
+```
+python tools/resume_fillrate.py
+文件  : 刘玉良-大模型应用开发-4.0.pdf（508265 字节）
+| 1 | 19 | 740.3 | 88% | 91% | 73.2 |
+| 2 | 23 | 793.0 | 94% | 97% | 20.5 |
+页数 = 2
+```
+
+4.0 与 5.0 并存时它选中 **4.0** —— 读数还是绿的，从报告上看不出任何异常。
+
+### 改之后同一条命令
+
+```
+文件  : 刘玉良-大模型应用开发-5.0.pdf（508495 字节）
+| 1 | 19 | 740.3 | 88% | 91% | 73.2 |
+| 2 | 23 | 793.0 | 94% | 97% | 20.5 |
+页数 = 2
+```
+
+两个 `y1` 读数与上一版**逐点一致**（这一版只改了一行措辞，没动版式）。
+
+### 红先绿后的新用例
+
+新增 3 条到 `tests/test_delivery_selfcheck.py`，**真调选择器**（不 `monkeypatch`）：
+`3 failed, 33 deselected` → `36 passed`。改前那三条里最直接的一条是「目录里只有 4.0 时」——
+未改动的选择器**把它当成交付物返回了**（`assert WindowsPath('…-4.0.html') is None` 不成立）。
+
+### 验证（本机实测，逐条照抄）
+
+| 项 | 命令 | 实测 |
+|---|---|---|
+| 收集条数 | `python -m pytest --collect-only -q` | 604（本轮开工前基线 601） |
+| 单元测试 | `python -m pytest -q` | **604 passed**，退出码 0 |
+| 闸门 | `python tools/check.py` | 4 步全过、退出码 0：1 `pytest` 604 passed ｜ 2 `19_verify` 32 条 PASS 29 / FAIL 0 / SKIP 3 ｜ 3 交付物核验 8 条 PASS 8 ｜ 4 收尾自检 9 项全部通过 |
+| 收尾自检 | `experiments/26_final_selfcheck.py` | 9 项全部通过；交付级 15 项 PASS 13 / FAIL 0 / SKIP 2 —— **那 2 项是「没跑」，不是通过** |
+| 交付级 15 项（联网） | `experiments/28_delivery_selfcheck.py --online` | PASS 15 / FAIL 0 / SKIP 0 / ERROR 0，退出码 0 |
+| 填充率 | `tools/resume_fillrate.py` | 量的是 **5.0.pdf**；740.3 / 793.0；2 页 |
+| 泄漏复核 | `experiments/27_leak_fix_verify.py` | 5 行 PASS，退出码 0 |
+| 选择器直读 | `resume_html()` / `resume_pdf()` | 返回的都是 **5.0** 那一份（`RESUME_TAG = 5.0`） |
+
+### 条数与产物的变动，逐条说明（不许静默吸收）
+
+1. `pytest` **601 → 604**：新增 3 条回归用例。为什么原来没有：现有夹具把
+   `resume_html`/`resume_pdf` 整个 `monkeypatch` 掉了，**选择器自己长期没人测** ——
+   这正是这个坑能一直绿着的原因。**没有删任何用例。**
+2. 本轮之前那次「598 passed + 3 skipped」与本轮「604 passed」的差**不是行为变化**：
+   那一次没设 `DELIVERY_RESUME_DIR`，凡依赖交付物的用例诚实地判了 SKIP；本轮设了，
+   它们真的跑了。口径照旧：**SKIP ≠ PASS**。
+3. 退出码：本轮 `pytest` 退出码是 **0**。本机那个安全钩子偶尔会拦住临时目录清理，
+   造成「断言全绿、退出码 1」；真出现时按 D-42 记原始读数，**不写成 FAIL、也不写成 PASS**。
+4. `reports/` 三份产物由脚本重跑刷新（D-51，不手改）：`verify.md` 的 P1 601 → 604；
+   `deliverable_check.md` 的 G4 命令条数 67 → 68（D-55 里新引用了一条命令，检查确认它存在）；
+   `leak_fix_verify.md` 里随之更新的 sha。
+5. `28 --online` 报告里两边指纹从 `511e067dcf8f` 变成 `3ee187253402`（**指纹不是提交号**，
+   理由见 `selfcheck.sha_fingerprint`）：原因是 HEAD 比上一轮前进了一笔（远端那一笔改的是
+   README，本地这一笔是本轮改动）。**本地与远端仍相同**，第 13 项照旧 PASS。
+
+### 同批做的台账校准（旧读数一律保留在批注里，不覆盖）
+
+`BLOCKERS.md` 开场白的用例数与卡点数（三个 → 四个）、卡点 4 的两处指向 2026-09-19 的迁移记录、
+`PROGRESS.md` 阶段表第 8 行、上一轮阶段清单的三行、`DECISIONS.md` 第 5 节那条填充率输入。

@@ -54,6 +54,11 @@ PASS, FAIL, SKIP, ERROR = "PASS", "FAIL", "SKIP", "ERROR"
 
 ENV_RESUME_DIR = "DELIVERY_RESUME_DIR"
 
+# 交付物的版本标签。★ 换版本**只改这一行**：下面两个选择器与它们的报错文案都引它。
+# 为什么收成一处：这一组检查是**按文件名认交付物**的。标签散在好几处时，换一版
+# 就会出现「检查照跑、查的却是上一份」—— 而且报告照样是绿的（实测见 D-55）。
+RESUME_TAG = "5.0"
+
 RESUME_PENDING = (f"本机没设 {ENV_RESUME_DIR}：交付物不在仓库里，"
                   "指到它所在的目录才会检查这一项")
 NET_PENDING = ("本项要联网，按设计不在离线闸门里跑；"
@@ -207,9 +212,9 @@ def resume_html() -> tuple[Path | None, str]:
     p = Path(d)
     if not p.is_dir():
         return None, f"{ENV_RESUME_DIR} 指到的不是一个目录"
-    cands = sorted(x for x in p.glob("*.html") if "4.0" in x.name)
+    cands = sorted(x for x in p.glob("*.html") if RESUME_TAG in x.name)
     if len(cands) != 1:
-        return None, (f"目录下文件名里带 `4.0` 的 HTML 有 {len(cands)} 个，"
+        return None, (f"目录下文件名里带 `{RESUME_TAG}` 的 HTML 有 {len(cands)} 个，"
                       "需要恰好一个（多了就说不清在查哪一份）")
     return cands[0], ""
 
@@ -218,9 +223,10 @@ def resume_pdf() -> tuple[Path | None, str]:
     d = os.environ.get(ENV_RESUME_DIR, "").strip()
     if not d:
         return None, RESUME_PENDING
-    cands = sorted(x for x in Path(d).glob("*.pdf") if "4.0" in x.name)
+    cands = sorted(x for x in Path(d).glob("*.pdf") if RESUME_TAG in x.name)
     if len(cands) != 1:
-        return None, f"目录下文件名里带 `4.0` 的 PDF 有 {len(cands)} 个，需要恰好一个"
+        return None, (f"目录下文件名里带 `{RESUME_TAG}` 的 PDF 有 {len(cands)} 个，"
+                      "需要恰好一个")
     return cands[0], ""
 
 

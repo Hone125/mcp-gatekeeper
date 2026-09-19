@@ -74,7 +74,7 @@
 
 | 被重写又还原的文件 | 跑之前 sha256 | 跑完 sha256 | 还原 |
 |---|---|---|---|
-| `reports/verify.md` | `d3e249eb33d9` | `d3e249eb33d9` | 是 |
+| `reports/verify.md` | `e9ecdca6ca85` | `e9ecdca6ca85` | 是 |
 | `reports/final_selfcheck.md` | `a7c85538087f` | `a7c85538087f` | 是 |
 
 - 代价说清：还原发生在**子进程跑完之后**。要是那一步中途被强杀（比如手工 Ctrl+C），这两份报告会停在降级状态 —— 重跑一次闸门即可复原，`git status` 会明确告诉你有哪两份被改过

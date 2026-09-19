@@ -118,7 +118,7 @@
       "cmd": "python -m pytest -q",
       "status": "PASS",
       "n_hits": 0,
-      "note": "601 条通过；条数变化的逐条说明见 PROGRESS.md",
+      "note": "604 条通过；条数变化的逐条说明见 PROGRESS.md",
       "hits": []
     },
     {
@@ -128,7 +128,7 @@
       "cmd": "GET api.github.com/repos/.../commits/main",
       "status": "PASS",
       "n_hits": 0,
-      "note": "本地指纹 511e067dcf8f / 远端指纹 511e067dcf8f（**为什么不写提交号**：见 `selfcheck.sha_fingerprint`）",
+      "note": "本地指纹 3ee187253402 / 远端指纹 3ee187253402（**为什么不写提交号**：见 `selfcheck.sha_fingerprint`）",
       "hits": []
     },
     {

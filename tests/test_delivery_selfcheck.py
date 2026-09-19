@@ -1,7 +1,7 @@
 """交付级自检那 15 项里，**判据反直觉的那几条**得有人钉住。
 
 这个文件不重复测「扫出来是空的」——那类用例在本仓别处已经有了。
-它只测三件容易在改动中被悄悄改坏的事：
+它只测四件容易在改动中被悄悄改坏的事：
 
 1. **第 6 项的判据是「所有 `N 个工具` 都必须等于 6」**，不是「出现过 `6 个工具`」。
    后者在「6 个……8 个」同时出现时照样通过 —— 那正是这一项要防的情况。
@@ -11,6 +11,9 @@
 3. **交付物不在本机时判 SKIP，不判 PASS**。这是全仓最容易被改成 PASS 的地方：
    把交付物那几个函数 `monkeypatch` 成「读不到 → 返回空命中」，
    如果实现里没有那条 `pending` 分支，就会静默变成「0 命中 = 干净」。
+4. **选择器挑的是「带当前标签的那一份」**。上面第 3 条的那些用例把选择器整个换掉了，
+   所以选择器自己长期没有覆盖：标签散在多处时，换一版就会出现
+   「检查照跑、查的却是上一份」，而且照样报绿。见文件末尾那三条用例。
 
 文件都在 `tmp_path` 里造，**不碰真的交付物**（它不在仓库里，也不该在）。
 """
@@ -37,13 +40,13 @@ def _pin_repo(monkeypatch) -> str:
 
 
 def _fake_resume(monkeypatch, tmp_path, text: str):
-    p = tmp_path / "某简历-4.0.html"
+    p = tmp_path / f"某简历-{dsc.RESUME_TAG}.html"
     p.write_text(text, encoding="utf-8")
     monkeypatch.setattr(dsc, "resume_html", lambda: (p, ""))
 
 
 def _fake_pdf(monkeypatch, tmp_path, pages: int):
-    p = tmp_path / "某简历-4.0.pdf"
+    p = tmp_path / f"某简历-{dsc.RESUME_TAG}.pdf"
     p.write_bytes(b"".join(b"/Type /Page\n" for _ in range(pages))
                   + b"/Type /Pages\n/Count %d\n" % pages)
     monkeypatch.setattr(dsc, "resume_pdf", lambda: (p, ""))
@@ -475,3 +478,66 @@ def test_resume_may_name_the_employer_but_not_the_old_repo(monkeypatch, tmp_path
 def test_pdf_page_count(monkeypatch, tmp_path, pages, status):
     _fake_pdf(monkeypatch, tmp_path, pages)
     assert dsc.check_14_pdf_pages().status == status
+
+
+# ------------------------------------------------- 第 4 件：选择器本身挑哪一份
+
+# 诱饵：故意**不是**当前标签的那一版。它就是下面第一条用例要排除的那一份。
+OTHER_TAG = "4.0"
+
+
+def _one_version(tmp_path, tag: str) -> None:
+    """在这个目录里造出「带某个标签的一版交付物」（HTML 与 PDF 各一份）。"""
+    (tmp_path / f"某简历-{tag}.html").write_text("<p>占位</p>", encoding="utf-8")
+    (tmp_path / f"某简历-{tag}.pdf").write_bytes(b"/Type /Page\n")
+
+
+def _point_at(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv(dsc.ENV_RESUME_DIR, str(tmp_path))
+
+
+def test_selector_picks_the_current_tag_when_two_versions_coexist(monkeypatch, tmp_path):
+    """★ 两版并存时，选中的必须是**带当前标签**的那一份。
+
+    这就是本轮修掉的那个坑：这一组检查按文件名认交付物，标签写死在多处，
+    换了一版之后选择器仍然挑中上一份 —— 检查照跑、报告照样绿，从报告上看不出异常。
+
+    本用例**不 monkeypatch 选择器**：上面那些用例把 `resume_html`/`resume_pdf`
+    整个换掉了，所以选择器本身一直没有人测过，这正是缺口所在。
+    """
+    assert OTHER_TAG != dsc.RESUME_TAG, \
+        "诱饵跟当前标签撞了 —— 这条用例会静默退化成「两个候选」，先改诱饵"
+    _one_version(tmp_path, OTHER_TAG)
+    _one_version(tmp_path, dsc.RESUME_TAG)
+    _point_at(monkeypatch, tmp_path)
+
+    p, why = dsc.resume_html()
+    assert why == ""
+    assert p is not None and dsc.RESUME_TAG in p.name and OTHER_TAG not in p.name
+
+    q, why_pdf = dsc.resume_pdf()
+    assert why_pdf == ""
+    assert q is not None and dsc.RESUME_TAG in q.name and OTHER_TAG not in q.name
+
+
+def test_selector_reports_when_no_version_matches(monkeypatch, tmp_path):
+    """一份都不匹配 → 报「找不到」，**不许**静默取空。
+
+    （口径同词表那条：读不到不等于 0 命中。）
+    """
+    _one_version(tmp_path, OTHER_TAG)
+    _point_at(monkeypatch, tmp_path)
+    p, why = dsc.resume_html()
+    assert p is None
+    assert dsc.RESUME_TAG in why
+
+
+def test_selector_reports_when_two_versions_match(monkeypatch, tmp_path):
+    """「恰好一个」这条语义不许放宽：多出一份同样要报错。"""
+    _one_version(tmp_path, dsc.RESUME_TAG)
+    (tmp_path / f"另一份-{dsc.RESUME_TAG}.html").write_text("<p>占位</p>",
+                                                           encoding="utf-8")
+    _point_at(monkeypatch, tmp_path)
+    p, why = dsc.resume_html()
+    assert p is None
+    assert dsc.RESUME_TAG in why

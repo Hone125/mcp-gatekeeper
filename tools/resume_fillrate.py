@@ -12,8 +12,9 @@
 
 ## 口径
 
-- **输入**：`DELIVERY_RESUME_DIR` 下唯一那个文件名带 `4.0` 的 PDF。用的是
-  与交付级自检第 14 项**同一个**查找函数（`delivery_selfcheck.resume_pdf()`）——
+- **输入**：`DELIVERY_RESUME_DIR` 下唯一那个文件名带 `delivery_selfcheck.RESUME_TAG`
+  标签的 PDF（**当前是哪个版本只由那一处常量说了算**，这里不抄第二遍）。
+  用的是与交付级自检第 14 项**同一个**查找函数（`delivery_selfcheck.resume_pdf()`）——
   两边要是各找各的，报告里的数字就可以指着不同文件
 - **量法**：PyMuPDF 取每页所有**文字块**的 bbox，取其中最大的 `y1`
   （页面左上角为原点，`y1` 越大越靠下）
@@ -28,7 +29,7 @@
 
 ## 用法
 
-    python tools/resume_fillrate.py              # 量现有的 4.0 PDF
+    python tools/resume_fillrate.py              # 量现有那一版 PDF
     python tools/resume_fillrate.py --export     # 先按固定命令重新导出，再量
 
 `--export` 用的是与手工导出**逐字相同**的那条 Chrome 命令（`--headless
@@ -60,7 +61,7 @@ E_OK, E_CANT = 0, 2
 
 
 def export(html: Path) -> tuple[bool, str]:
-    """按固定命令重新导出同目录下的 4.0 PDF。返回 `(成功, 说明)`。"""
+    """按固定命令重新导出同目录下、同标签的那份 PDF。返回 `(成功, 说明)`。"""
     exe = os.environ.get("RESUME_CHROME", "").strip() or CHROME_DEFAULT
     if not Path(exe).is_file():
         return False, (f"找不到 Chrome（{Path(exe).name}）—— "
