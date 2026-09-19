@@ -82,8 +82,13 @@ STEPS: list[dict] = [
      "why": "单元测试：最细一层，几十秒，覆盖鉴权矩阵 / SQL 护栏 / 偏移量 / 报告口径"},
     {"cmd": ["experiments/19_verify.py"],
      "why": "台账式自检：真的把每个入口脚本跑一遍，比对声明的退出码"},
-    {"cmd": ["experiments/25_deliverable_check.py"],
-     "why": "交付物核验：文档里写的和仓库里的对不对得上"},
+    # `--json` 不是装饰：不带它时 `reports/deliverable_check.json` **永远不会被刷新**。
+    # 实测（2026-09-19）：它从初始提交起就没动过，内容还写着「25 条命令」+
+    # G5/G6 判 SKIP「README.md 尚未创建」，而同一脚本产出的 `.md` 每轮都在更新 ——
+    # 原因是这个开关只有在手动带上时才写文件。闸门是唯一每轮都会跑的地方，
+    # 所以把开关加在这里，让它跟着一起刷。
+    {"cmd": ["experiments/25_deliverable_check.py", "--json"],
+     "why": "交付物核验：文档里写的和仓库里的对不对得上；顺带刷新 deliverable_check.json"},
     {"cmd": ["experiments/26_final_selfcheck.py"],
      "why": "收尾自检：发布前 9 项红线逐条报命中数，产出 reports/final_selfcheck.md。"
             "它自己会再跑一次 pytest 与 19_verify（为了自证而不是引用别人的结论），"

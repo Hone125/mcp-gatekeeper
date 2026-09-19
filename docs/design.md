@@ -100,7 +100,10 @@ scope 挂在**工具**上，不挂在「用户」上 —— 换一个客户端�
 tools/check.py            闸门：按顺序跑，退出码 = 卡在第几步
   ├─ 1  python -m pytest                      单元测试（最细一层）
   ├─ 2  experiments/19_verify.py              台账：真的把每个入口脚本跑一遍
-  └─ 3  experiments/25_deliverable_check.py   交付物：文档说的和仓库里的对不对得上
+  ├─ 3  experiments/25_deliverable_check.py --json
+  │                                           交付物：文档说的和仓库里的对不对得上；
+  │                                           `--json` 让 reports/deliverable_check.json 跟着刷新
+  └─ 4  experiments/26_final_selfcheck.py     收尾自检：发布前 9 项红线逐条报命中数
 ```
 
 **为什么台账和闸门都要有**：读者不同。台账给「想知道细节的人」，它必须跑完全部、
