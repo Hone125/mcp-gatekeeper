@@ -1,4 +1,4 @@
-# mcp-guarded-toolkit
+# mcp-gatekeeper
 
 一个基于 **MCP（Model Context Protocol）** 的本地工具服务：把一份示例数据库和一份公版文本库
 开放成 6 个工具。其中「让模型自己写 SQL 查数据库」这条链路必须真的安全 ——
