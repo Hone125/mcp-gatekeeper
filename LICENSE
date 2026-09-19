@@ -19,13 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-这条 MIT 许可覆盖的是**本仓库的代码**。
-
-仓库里分发的**数据**不在这条许可之下，它们各自有自己的出处和许可，
-逐项列在 NOTICE.md 里：
-
-- data/chinook/Chinook_Sqlite.sql —— Chinook Database 项目，MIT
-- data/kb/raw/*.txt、data/kb/manifest.json —— Project Gutenberg，美国境内公有领域

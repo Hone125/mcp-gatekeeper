@@ -61,6 +61,16 @@ FOOTER = """
 MIT，全文见 `LICENSE`。代码没有从任何其他项目复制 —— 参考过同类实现的设计思路，
 但每一行都是重写的，这一点在 `DECISIONS.md` 里有说明。
 
+★ **这条许可的边界在哪**：`LICENSE` 里那份 MIT 覆盖的是**本仓库的代码**。
+仓库里分发的**数据**不在这条许可之下 —— 它们各自有自己的出处和许可，逐项列在上面：
+
+- `data/chinook/Chinook_Sqlite.sql` —— Chinook Database 项目，MIT
+- `data/kb/raw/*.txt`、`data/kb/manifest.json` —— Project Gutenberg，美国境内公有领域
+
+> 这段话原先接在 `LICENSE` 文件的末尾。挪到这里的原因很实际：MIT 全文后面挂一段
+> 中文补充，托管站点就**认不出那是 MIT**（仓库页面上显示成 "Other"）。
+> 挪走之后 `LICENSE` 是干净的 MIT 全文，这段话也没丢，只是换了个更该在的位置。
+
 ## 没有收录什么
 
 明确列一下，省得有人去找：

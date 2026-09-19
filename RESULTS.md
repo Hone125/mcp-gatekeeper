@@ -41,8 +41,17 @@
 | 噪声带尺子 正控 | 量出 0 | `python experiments/21_noise_band.py --fake stable`：两遍完全一样时必须量出 0 |
 | 噪声带尺子 负控 | 正好量出 3 | `python experiments/21_noise_band.py --fake jitter`：第二遍故意抖 3 题，必须正好量出 3 |
 | 配对统计自检 | 7 组通过 | `python experiments/20_pair_test.py --selftest`：合成数据，含措辞禁用词检查 |
-| 单元测试 | 530 passed / 0 skipped，退出码 0 | `python -m pytest -q` |
+| 单元测试 | **604 passed** / 0 skipped，退出码 0 | `python -m pytest -q` |
 | 产物可复现性 | 跑闸门前后的聚合哈希**相同**（两遍逐字节一致） | 见下面的「怎么自己验一遍」；哈希由 `tools/check.py --snapshot` 打印 |
+
+> **这一行的读数变过，旧值照实留在这里。** 本表最初写的是 `530 passed`，
+> 那是**阶段 5 那一版**的记录。此后每加一条用例它就变一次
+> （543 → 570 → 598+3 skipped → **604**），而这张表没有跟着改 ——
+> 表里别的数字都由脚本产出，唯独这一行是手抄的，**手抄的那一格最容易过期**。
+> 2026-09-19 按实测校准为 **604**（`python -m pytest -q`，收集 604 条）。
+> 逐次变化的条数说明见 `PROGRESS.md`「单元测试条数」那几节。
+> ★ 本行只报**当前**读数；历史读数属于哪一版，以 `PROGRESS.md` 与
+> `BLOCKERS.md` 的补记为准（那里同样保留 543 这类旧值）。
 | 台账式自检 | 32 条：PASS 29 / FAIL 0 / SKIP 3 / ERROR 0，退出码 0 | `python experiments/19_verify.py`；3 条 SKIP 全部是同一个理由「本轮未重跑，盘上已有实测产物」（需要模型凭据的那三条，见 `DECISIONS.md` D-44），**不是通过** |
 | 交付物核验 | 8 条：PASS 8 / FAIL 0 / SKIP 0，退出码 0 | `python experiments/25_deliverable_check.py`：文档里写的和仓库里对不对得上 |
 | 收尾自检 | 9 项全部通过，退出码 0 | `python experiments/26_final_selfcheck.py`，产物见 [reports/final_selfcheck.md](reports/final_selfcheck.md) |
