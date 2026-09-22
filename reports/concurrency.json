@@ -1,0 +1,50 @@
+{
+  "n": 24,
+  "limit": 6,
+  "io_delay_ms": 20,
+  "modes": {
+    "A": {
+      "calls": 24,
+      "business_ok": 24,
+      "denied": 0,
+      "timeout": 0,
+      "error": 0,
+      "peak": 1,
+      "entries": 24
+    },
+    "B": {
+      "calls": 24,
+      "business_ok": 24,
+      "denied": 0,
+      "timeout": 0,
+      "error": 0,
+      "peak": 1,
+      "entries": 24
+    },
+    "C": {
+      "calls": 24,
+      "business_ok": 24,
+      "denied": 0,
+      "timeout": 0,
+      "error": 0,
+      "peak": 6,
+      "entries": 24
+    }
+  },
+  "probe": {
+    "n": 24,
+    "ok": 23,
+    "timeout": 1,
+    "error": 0,
+    "first_is_timeout": true,
+    "first_error": "TimeoutError"
+  },
+  "verdict": {
+    "serial_peak_is_1": true,
+    "naive_peak_is_1": true,
+    "correct_peak_hits_limit": true,
+    "all_modes_did_the_same_work": true,
+    "probe_degraded_exactly_one": true
+  },
+  "ok": true
+}
