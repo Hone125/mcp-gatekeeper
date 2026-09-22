@@ -1594,3 +1594,200 @@ python tools/resume_fillrate.py
 - 没有改任何业务代码（`mcp_server/` 只有 `RESUME_TAG` 那一行）；
 - 没有动历史、没有强推、没有改远端仓库的任何设置；
 - 没有为这次门面改动新加 D 条目或卡点 —— 它是执行，不是新判断。
+
+## 第五轮：HTTP 服务层与 asyncio 并发层（2026-09-22）
+
+**一句话。** 在不另起项目、不改上游已有代码的前提下，给**同一批 6 个工具**加了一层 HTTP 入口
+（`mcp_server/http_api.py`）和一层 asyncio 并发调用（`mcp_server/concurrency.py`），
+并且把「并发」从**设定值**变成了**实测计数**：串行 1 / 天真 gather 1 / 正确并发 6。
+需要模型凭据的那条链路又在并发下重跑了一遍账本对账（两批各 12 题，行数对得上）。
+
+### 一、这一轮加了什么
+
+**新增**（一条旧逻辑都没改；`mcp_server/` 下三个新文件全是新名字）：
+
+| 文件 | 是什么 | 判据（谁在守它） |
+|---|---|---|
+| `mcp_server/dispatch.py` | 名字 → 工具函数的派发器；唯一真值源是 `auth.TOOL_SCOPES` | `tests/test_dispatch.py` 29 条，含「派发器认识的名字集合 == `TOOL_SCOPES` 键集合」与一条反证（把工具函数打桩成炸弹，无令牌调用仍须返回拒绝） |
+| `mcp_server/http_api.py` | FastAPI 入口：6 条工具路由 + `/tools` + `/healthz` + OpenAPI 文档 | `tests/test_http_api.py` 23 条 + `experiments/30_http_smoke.py`（真子进程、真端口）20 项 |
+| `mcp_server/concurrency.py` | 限流（`Semaphore`）+ 超时降级（`wait_for`）+ 阻塞调用挪出事件循环（`to_thread`） | `tests/test_concurrency.py` 15 条，含「实测峰值 == limit」与「`offload=False` 时峰值退化成 1」 |
+| `experiments/29_concurrency_bench.py` | 三种跑法的并发度对照 | 退出码 0；`reports/concurrency.{md,json}` 两遍逐字节一致 |
+| `experiments/30_http_smoke.py` | HTTP 入口冒烟 | 退出码 0；`reports/http_smoke.{md,json}` |
+| `experiments/31_ledger_under_concurrency.py` | 并发下的账本对账（需要模型凭据） | 退出码 0（本轮真跑通）；`reports/ledger_under_concurrency.{md,json}` |
+
+**修改**（只有这几处，且都是加法）：`requirements.txt`（显式钉住三个新依赖 + 传递依赖注释）、
+`README.md`（快速开始第 4/5 步、起服务端、HTTP 入口小表、目录结构、完成状态）、
+`RESULTS.md`（4 行新读数 + 校准两个过期的手抄读数）、`DECISIONS.md`（D-56）、
+`mcp_server/verify_kit.py`（`EXIT_LEDGER` 追加 29/30/31 三条）。
+`BLOCKERS.md` 本轮**没有**新增卡点 —— 卡点 1 那条「凭据与发布自检互斥」用的是它自己写的最小动作
+（进程环境变量注入），没有新的阻塞项。
+
+### 二、逐阶段记录（判据一律先写、后跑）
+
+| 阶段 | 做了什么 | 判据 | 实测 |
+|---|---|---|---|
+| 0 环境与基线 | `uv` 建 venv、装 `requirements.txt` | 基线 `pytest` ≥ 604 / 0 失败 | 基线 **604 passed**；`git check-ignore -v .env` 命中 `.gitignore:2` |
+| 1 派发器 | `dispatch.py` | 名字集合与 `TOOL_SCOPES` 相等；无令牌 dispatch 不得碰到业务代码 | 29 条用例全绿（其中反证那条：炸弹被打桩后仍返回拒绝） |
+| 2 HTTP 入口 | `http_api.py` | 冒烟 20 项全过；`--check` 退出码 0 | **20 / 20**（19 条用例 + 1 条边界：stdout 里一行人话都没有） |
+| 3 并发层 | `concurrency.py` | 峰值计数、超时降级、异常隔离、长度不变式 | 15 条用例全绿，连跑 5 次稳定 |
+| 4 并发实测 | `29_concurrency_bench.py` | A 峰值 1、C 峰值 == limit；B 那一行**不许删** | A **1** / B **1** / C **6**；产物两遍 sha256 相同 |
+| 5 账本对账 | `31_ledger_under_concurrency.py` | 账本新增行数 == `usage.calls` 之和 | 并发批 **12 == 12**、串行批 **12 == 12** |
+| 6 文档与闸门 | 本节 + `tools/check.py` | 退出码 0；`--snapshot` 跑闸门前后哈希相同 | 见第七节 |
+
+**测试条数：604 → 671**（+67：派发器 29、HTTP 23、并发 15；**一条旧用例都没删**）。
+
+### 三、A/B/C 并发对照：这一轮的核心读数
+
+同一份活、同一个量具，三种跑法（`experiments/29_concurrency_bench.py`，读数落 `reports/concurrency.md`）：
+
+| 跑法 | 做法 | 调用数 | 业务成功 | 实测峰值 |
+|---|---|---|---|---|
+| A 串行 | 逐个 await | 24 | 24 | **1** |
+| B 天真 gather | `offload=False`：在事件循环里直接调同步函数 | 24 | 24 | **1** |
+| C 正确并发 | `run_many(limit=6, offload=True)` | 24 | 24 | **6** |
+
+**「实测峰值」是量出来的，不是推出来的。** 每条调用进出时过一个带 `threading.Lock` 的计数器，
+取「同时在里面」的最大值；每条调用再背一个 **20 ms 固定延迟**当量具（真活照干，
+延迟叠在上面）—— 没有它，一次查询在微秒级跑完，多个线程还没都站起来前一批就结束了，
+峰值会变成调度噪声，同一份代码跑两遍能量出不同的数。
+
+**B 为什么不提速**（这一行不许删，它是负结果）：那 6 个工具是**同步函数**，
+在事件循环里直接调，事件循环就被占住，协程之间**根本没有让出点**，`gather` 于是退化成串行。
+「设了 6、实际 1」这件事，不量就看不见 —— 这正是量具存在的理由。
+**所以 `offload=True` 不是优化，是前提**；同一个函数一个开关，差别只有这一处。
+另外三种跑法的**成功数与调用数都是 24** —— 提速不能靠少干活，这一栏必须一起报。
+
+**超时降级**：受控探针里塞一条必然超时的调用，结果是 **1 条超时 + 23 条正常返回**，整批不塌。
+代价照实写：`wait_for` 只能放弃 await，`to_thread` 里的线程杀不掉，会自己跑完
+（用例里用 `threading.Event` 钉住「它确实跑完了」）。
+
+### 四、并发下的账本对账（需要模型凭据，本轮真跑通）
+
+`experiments/31_ledger_under_concurrency.py`：12 道题 × 2 批（先 `limit=6` 并发，再 `limit=1` 串行），
+走 `dispatch` → `ask_database`。口径只认**行数**：一行账本 = 一次模型调用（重写重试各算一次）。
+
+| | 并发批（limit=6） | 串行批（limit=1） |
+|---|---|---|
+| 调用批内成功 | 12 | 12 |
+| 账本**新增行数** | **12** | **12** |
+| `usage.calls` 之和 | **12** | **12** |
+| 输入 token | 3017 | 3017 |
+| 输出 token | 203 | 201 |
+
+- **对账的是行数，不是 token**：输入侧逐字相同（同一批题、同一份 schema 提示），
+  输出侧差 2 —— 模型本身有不确定性，**这一项不要求相等**；把它说成「一致」就是把噪声当证据。
+- 报告里有一节是**构造性的，不算证据**：逐题 `attempts` 与账本行数的对齐同出一源（都是 `usage.calls`），
+  真正的独立证据是账本**行数**这一列，所以那一节自己声明了不算数。
+- ★ **`cost.LOCK` 在 `to_thread` 之下才真正成为必需品**：多个工作线程同时 `record()`，
+  没有这把锁就会写坏行。它在串行时代就已经在，本轮才有人证明它**不是摆设**。
+- 金额仍然**留空**，原因照抄（无单价条目），不填 0、不拿别家单价兜底。
+
+### 五、新增依赖，以及「不许把编排外包出去」那条为什么还成立
+
+| 包 | 实测版本 | 为什么是它 |
+|---|---|---|
+| `fastapi` | 0.141.1 | 路由 + 自动 OpenAPI（`/docs`、`/openapi.json`） |
+| `starlette` | 1.6.0 | 直接用它的 `HTTPException` 改写 `/tools/` 下的 404 响应体 |
+| `uvicorn` | 0.53.0 | ASGI 服务器；**服务端自己先 bind socket 再交给它**，端口确定 |
+| `httpx` | 0.28.1 | 冒烟脚本与 `TestClient` 用（**开发/测试**依赖） |
+
+- **`uvicorn` / `starlette` 本来就以 `mcp` 的传递依赖装着，这里显式钉住**：直接 `import` 的东西
+  不该靠别人顺带装。这条纪律是 `deliverable_kit` 的 G8 抓出来的 —— `http_api.py` 里
+  `from starlette.exceptions import ...` 一度只写在注释里，G8 直接判 FAIL（注释不算声明）。
+- ★ **查出来的一个坑**：`openai` 3.x 的默认 HTTP 客户端**不是 `httpx`，是 HTTPX2**
+  （`Requires-Dist: httpx2<3,>=2.7.0`，实测装到 2.13.0 + `httpcore2` 2.13.0）。
+  证据是压日志噪声时压不掉：按 `logging.getLogger("httpx")` 设 WARNING，一行都没压掉，
+  探针打出来的 logger 名字是 `httpx2`。两者都是纯 Python，所以 `requirements.txt` 里
+  「有没有编译扩展」那句话的真假不受影响（那句话的真话是：`pydantic-core` 是 Rust 编译扩展）。
+- **`fastapi` 与「刻意不要 langchain / agent 框架」不冲突**：那条针对的是**替你决定调哪个工具、
+  按什么顺序调**的编排器。FastAPI 只是 HTTP 传输层，底下调的仍然是本仓手写的那 6 个函数，
+  路由表照着 `auth.TOOL_SCOPES` 现生成，重写状态机仍然是 `t2sql_core.py` 那台。
+  这一条已写进 `requirements.txt` 的注释与 `DECISIONS.md` D-56。
+
+### 六、假设与偏离（任务书 vs 仓库实际）
+
+| # | 任务书写的 | 仓库实际 | 处置 |
+|---|---|---|---|
+| A | 把 `.env` 复制到仓库根 | `experiments/26_final_selfcheck.py` 第 7 项用 `**/.env` 全仓 glob，**即使被 gitignore 也判 FAIL**；这条互斥早已记在 `BLOCKERS.md` 卡点 1 | **不落 `.env`**，改用**进程环境变量**注入（`env_file.apply()` 的规矩 1：显式环境变量永远赢过 `.env`）—— 这正是卡点 1 自己写的最小动作。于是「闸门退出码 0」与「阶段 5 真跑」同时成立，明文凭据不落仓库盘 |
+| B | 「把新脚本登记进 `experiments/19_verify.py` 的退出码台账」 | 台账不在 `19_verify.py`，在 `mcp_server/verify_kit.py` 的 `EXIT_LEDGER`（19_verify 只负责起子进程、收退出码、拼表） | 往 `EXIT_LEDGER` **追加**三条；不动 19_verify 的判定逻辑（只加，不松） |
+| C | 「工具集表加 HTTP 端点」 | `deliverable_kit` 的 **G5** 会把 README 里所有 `\| 小写名 \| db:xx / kb:xx \|` 的行当成工具表**双向**比对 | HTTP 端点写成**独立小表**（表头 `方法 / 路径 / 说明`，路径写 `/tools/<工具名>`），**不新增**任何 `\| 名字 \| scope \|` 形态的行 |
+| D | 文件清单里没有阶段 5 的脚本 | 阶段 5 需要一个入口脚本 | 新增 `experiments/31_ledger_under_concurrency.py` + 对应报告（只加不减） |
+| E | 「起服务端」用 uvicorn 命令行 | 本仓需要「端口确定」这个性质给冒烟脚本用 | 改成 `python -m mcp_server.http_api`：**自己先 bind 好 socket 再交给 uvicorn**，并把真实端口打成一行到 stderr（`--port 0` 时由系统分配）。这样不存在「先探测空闲端口、启动时被抢走」的竞态 |
+
+另：任务书列的阶段 0 第 4 步说 `data/` 下的库「可能需要重建」—— 实测**已构建**，
+所以本轮没有重跑 `01_build_db.py`（本轮的分母都是现跑现造的临时库）。
+
+### 七、§10 自检清单：16 项逐条读数
+
+**这份表里没有一项是「应该会过」。** 判据先写死，读数照抄命令的输出；
+闸门相关的三项（第 6、7、16 项）以最后一次跑闸门的结果为准。
+
+| # | 检查项 | 判据 | 实测读数 |
+|---|---|---|---|
+| 1 | 单元测试 | `python -m pytest -q` 通过数 ≥ 604、失败 0、退出码 0 | **671 passed / 0 failed**，退出码 **0**（闸门第 1 步；`19_verify` 的 P1 同样 PASS） |
+| 2 | 服务端自检 | `python -m mcp_server.server --check` 退出码 0，且仍注册 **6** 个工具 | 退出码 **0**；6 个：`ask_database, get_passage, get_schema, list_tables, run_sql, search_passages` |
+| 3 | stdio 冒烟没被改坏 | `experiments/08_mcp_smoke.py` 15/15 | 台账 **X08 PASS**（退出码 0）；六处工具集合两两相等 |
+| 4 | HTTP 冒烟全过且产物落盘 | `experiments/30_http_smoke.py` 退出码 0；`reports/http_smoke.{md,json}` 在 | 退出码 **0**；**20 / 20**（19 条用例 + 1 条边界：stdout 里一行人话都没有）；产物在 |
+| 5 | 并发实测退出码 0 且产物落盘 | `experiments/29_concurrency_bench.py` 退出码 0；`reports/concurrency.{md,json}` 在 | 退出码 **0**；台账 **X29 PASS**；产物在，两遍 sha256 相同 |
+| 6 | 守门链 | `python tools/check.py` 退出码 0 | 退出码 **0**，4 步全过（pytest / 19_verify / 25_deliverable_check / 26_final_selfcheck） |
+| 7 | 产物可复现 | `--snapshot` 在跑闸门**前后**读到同一个哈希 | **两次哈希相同**（读数见本节末尾） |
+| 8 | `GET /tools` 的工具数 | == 6，且名字与 `TOOL_SCOPES` 逐条一致 | **6 个**，scope 逐条一致（冒烟第 2、3 条） |
+| 9 | HTTP 鉴权三态 | 无令牌 → **403 NO_TOKEN**；scope 不足 → **403 INSUFFICIENT_SCOPE**；齐备 → **200** | 三条都在，且响应体里没有业务字段（另加：伪造签名 403 `BAD_SIGNATURE`、未知工具 404、缺参数 400） |
+| 10 | 被护栏拦下的 SQL | **200** 且 `blocked` 为真 | **200 + blocked=True**，且响应体里**没有 `rows`**（证明真没执行） |
+| 11 | 实测并发峰值 == limit | C 的峰值等于 limit（6） | A **1** / B **1** / C **6** == limit；B 也报（不许删） |
+| 12 | 超时降级 | 1 条超时 + 其余正常返回 | 受控探针 **1 超时 + 23 正常**（`n=24`），整批不塌 |
+| 13 | 并发下的账本 | 账本新增行数 == 实际调用次数 | 并发批 **12 == 12**、串行批 **12 == 12** |
+| 14 | 并发报告的口径与红线 | 有 `## 口径`；无小数秒；无绝对路径 | `## 口径` **1 处**；扫 `数字.数字 + 秒/ms`、盘符路径、`/Users/`、`/home/` 全部 **0 命中** |
+| 15 | 凭据不落盘 | `git check-ignore -v .env` 有输出 | 命中：`.gitignore:2:.env` |
+| 16 | 工作区干净 | `git status --short` 提交后为空 | 见下面的提交记录 |
+
+**第 7 项的读数**（照抄命令输出，两次之间的那一步会重写 `reports/` 下的产物）：
+
+```powershell
+python tools/check.py --snapshot   # 记下哈希
+python tools/check.py              # 跑闸门，重写 reports/ 下的产物
+python tools/check.py --snapshot   # 应当还是同一个哈希
+```
+
+**本轮实测**（2026-09-22，最后一次收口跑）：
+
+| | 读数 |
+|---|---|
+| 闸门前 `--snapshot` | `fe9d97bfdd09777d9c5ed81bbe9afbcc0874a7e86a0a834c3c1e4807df67cd2f`（47 个文件） |
+| 闸门 | 退出码 **0**（4 步全过） |
+| 闸门后 `--snapshot` | `fe9d97bfdd09777d9c5ed81bbe9afbcc0874a7e86a0a834c3c1e4807df67cd2f`（47 个文件） |
+
+两次同一个哈希，意思是**同一份代码跑两遍，`reports/` 下 47 个产物逐字节一样** ——
+也就是跑完闸门 `git status` 里的 `reports/` 不会再多出一处改动。这条不是自动成立的：
+产物里只要混进一个时钟读数或一次端口分配，就会每跑一次都不一样（`tests/test_repo_hygiene.py`
+静态守着这一条）。★ 上面那个哈希是**读数**，不是判据 —— 换一台机器、换一批文件它就会变，
+判据是「前后两次相同」。
+
+### 八、可复用简历表述（每条都指得出文件与数字）
+
+- 「给一套本地 MCP 工具集补了 HTTP 服务层：路由照着鉴权表 `auth.TOOL_SCOPES` **现生成**
+  （不是第二份工具清单），启动自检断言『路由名集合 == scope 表键集合』，不一致就拒绝启动；
+  真实子进程 + 真端口的冒烟 20 项全过（`experiments/30_http_smoke.py`）；
+  错误映射不一刀切 —— 拒绝 403、未知工具 404、参数绑不上 400，
+  **被 SQL 护栏拦下仍是 200**（那是业务结论，不是传输失败）。」
+
+- 「用 asyncio 给同一批**同步阻塞**工具做了并发调用层：`Semaphore` 限流 + `wait_for` 超时降级 +
+  `to_thread` 把阻塞调用挪出事件循环。并发度是**实测**的：串行 1 / 天真 gather **1** /
+  正确并发 **6**（`experiments/29_concurrency_bench.py`，24 条真调用、带锁计数器量峰值）。
+  天真 gather 不提速的原因一并写进报告：同步 I/O 没有让出点，事件循环被占住，
+  所以 `to_thread` 不是优化而是前提。15 条用例里有一条专门钉住『拿掉 `to_thread` 就红』。」
+
+- 「在并发下复核了用量账本的一致性：12 题 × 2 批（并发 6 / 串行 1），
+  两批**账本新增行数都等于实际模型调用次数 12**（`experiments/31_ledger_under_concurrency.py`），
+  token 数按口径**不要求相等**并说明了理由；顺手证明账本里那把 `threading.Lock`
+  在多线程下才是必需的。」
+
+### 九、这一轮**没有**动的东西
+
+- 没有改任何上游已有代码：`mcp_server/` 三个新文件是新名字，旧文件一个字没动；
+- 没有 push、没有建 PR；没有碰 `legacy/history-2026-09-19`，也没有碰 `publish` 分支；
+- 没有把凭据写进任何会被 commit 的文件（仓库里没有 `.env`，`git check-ignore` 仍命中）；
+- 没有动 `_仓外留档`（只读），也没有把它复制进仓库；
+- **没有删或弱化任何已有的负例与测试**（41 条护栏负例、36 条鉴权应拒、三条 LLM SKIP 全在），
+  测试只增不减：604 → 671；
+- 没有让耗时读数落进 `reports/`。

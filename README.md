@@ -10,8 +10,11 @@
 - **不联网、不需要模型凭据**就能跑完全部测试与自检（自检里靠词表的那几项会判 `SKIP`，
   见「已知边界」——`SKIP` 是「没查」，不是通过）
 - 报告里每个数字都能指出「脚本名 + 口径」，没有估计值
-- 需要模型凭据的那条链路**已经跑通一次（2026-09-18）**，数字落盘在 [RESULTS.md](RESULTS.md) 第二节；
-  本机现在没有凭据，重跑会一律报「未完成」，**不编数字**（见 [BLOCKERS.md](BLOCKERS.md) 卡点 1）
+- 需要模型凭据的那条链路**已经跑通**（2026-09-18 的评测；2026-09-22 又在并发下重跑了一遍对账），
+  数字落盘在 [RESULTS.md](RESULTS.md) 第二节与 [reports/ledger_under_concurrency.md](reports/ledger_under_concurrency.md)
+- **本仓库不放凭据**（`.env` 也不放，理由见 [BLOCKERS.md](BLOCKERS.md) 卡点 1），所以直接重跑
+  需要凭据的脚本会一律报「未完成」（退出码 5 + 一份说明），**不编数字**。
+  本轮真跑通的那几次，凭据是以**进程环境变量**注入的，没落仓库盘
 
 ## 快速开始
 
@@ -28,7 +31,11 @@ python experiments/10_auth_test.py
 python experiments/11_guardrail_test.py
 python experiments/08_mcp_smoke.py
 
-# 4) 一条命令回答「现在能不能交出去」
+# 4) HTTP 入口与并发：真起服务、真 TCP 冒烟；以及并发度的实测读数
+python experiments/30_http_smoke.py
+python experiments/29_concurrency_bench.py
+
+# 5) 一条命令回答「现在能不能交出去」
 python tools/check.py
 ```
 
@@ -40,10 +47,19 @@ python tools/check.py
 ```bash
 python -m mcp_server.server --check     # 只做启动自检：注册的工具与 scope 表是否一致
 python -m mcp_server.server             # 真正拉起 stdio 服务端
+
+python -m mcp_server.http_api --check   # HTTP 侧的自检：路由名集合 == TOOL_SCOPES 键集合
+python -m mcp_server.http_api           # 拉起 HTTP 服务（默认 127.0.0.1:8000）
+python -m mcp_server.http_api --port 0  # 由系统分配端口，启动行会打印真实端口
 ```
 
 stdio 服务端的 **stdout 是协议通道**，所以人话一律走 stderr —— 打印一行启动信息到
 stdout 会让握手直接报 `Invalid JSON`（这个 bug 只有真实握手能抓到，见 `PROGRESS.md` 阶段 3）。
+HTTP 侧沿用同一条规矩：人话走 stderr，端口也打在那儿（`[http] 监听 127.0.0.1:<port>`）。
+服务端**自己先 bind 好 socket 再交给 uvicorn**，所以端口是确定的，不存在「先探测空闲端口、
+启动时被抢走」的竞态。
+
+起好之后，`/docs` 是 OpenAPI 自动生成的交互文档，`/openapi.json` 是机器可读的那份。
 
 ## 工具集
 
@@ -68,6 +84,28 @@ token = auth.make_token("demo-user", scopes=["db:read", "kb:read"])
 
 `ask_database` 是唯一需要模型凭据的工具；其余 5 个不需要。
 
+### 同一批工具的 HTTP 入口
+
+`mcp_server/http_api.py` 把上面这 6 个工具挂成 HTTP 路由。路由是照着 `auth.TOOL_SCOPES`
+**现生成**的（不是第二份工具清单），请求体就是那个工具的 kwargs（含 `token`），
+响应体就是工具原本的返回值 —— 同一份业务逻辑，两个传输层。
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/tools/<工具名>` | 调一个工具；上表那 6 个名字各有一条路由 |
+| GET | `/tools` | 工具名 + 所需 scope 的清单 |
+| GET | `/healthz` | 存活探针 |
+| GET | `/docs` | OpenAPI 交互文档（FastAPI 自带，`/openapi.json` 是机器可读的那份） |
+
+状态码不是一刀切：拒绝 → 403（`code` 原样带回）、未知工具 → 404、参数绑不上 → 400，
+**被 SQL 护栏拦下的查询是 200** —— 那是业务结论（请求被正确执行并给出了结论），
+报 4xx 会让「护栏工作正常」看起来像「调用失败」。完整映射见
+`mcp_server/http_api.py` 的 `status_for()`，逐条断言在 `tests/test_http_api.py`。
+
+并发调用走 `mcp_server/concurrency.py`：同步阻塞的工具函数一律 `asyncio.to_thread`
+挪出事件循环，`Semaphore` 限并发，`wait_for` 超时降级成一条结果记录而不是拖垮整批。
+**为什么必须挪**、以及不挪会怎样（实测并发度退化成 1），见 `reports/concurrency.md`。
+
 ## 目录结构
 
 ```
@@ -78,10 +116,16 @@ mcp_server/     服务端与全部纯逻辑（可 import，因此可单测）
   kb_tools.py      检索 / 取原文
   t2sql_core.py    自然语言转 SQL 的状态机（有界重写）
   cost.py          用量账本（JSONL 只追加，金额允许为空）
+  dispatch.py      名字 → 工具函数的派发器（HTTP 层的唯一入口）
+  http_api.py      FastAPI 入口：路由由 TOOL_SCOPES 现生成
+  concurrency.py   asyncio 并发层：限流 + 超时降级 + 阻塞调用挪出事件循环
   selfcheck.py     仓库卫生扫描口径（词表、范围、掩码）
   verify_kit.py    退出码台账与判定
   deliverable_kit.py  交付物核验 G1~G8
 experiments/    可重跑的入口脚本（全部幂等）
+  29_concurrency_bench.py          三种跑法的实测并发度对照
+  30_http_smoke.py                 HTTP 入口冒烟（真进程、真端口）
+  31_ledger_under_concurrency.py   并发下的账本对账（需要模型凭据）
 tests/          单元测试：零网络、零模型调用
 tools/check.py  守门链
 data/           公开数据（示例库 .sql + 公版文本 + 出处清单）
@@ -123,6 +167,9 @@ docs/           设计说明
 | 数据构建、鉴权、三层护栏、MCP 握手、知识库检索 | 已完成，有实测报告 |
 | 自然语言转 SQL（`ask_database`） | **已跑通一次（2026-09-18）**：配好凭据后四条链路全部跑完并落盘，数字见 [RESULTS.md](RESULTS.md) 第二节。凭据不在仓库里，所以 clone 后要自配一份才能重跑（见 [BLOCKERS.md](BLOCKERS.md) 卡点 1） |
 | 噪声带与配对统计 | 同上那次运行里跑完：尺子有正负控，数字见 [RESULTS.md](RESULTS.md) 第二节 |
+| HTTP 入口（FastAPI） | 已完成：6 条工具路由 + `/tools` + `/healthz` + OpenAPI 文档；真实子进程冒烟 20 项全过，见 [reports/http_smoke.md](reports/http_smoke.md) |
+| asyncio 并发层 | 已完成：限流、超时降级、阻塞调用挪出事件循环。**实测并发度**（不是设定值）：串行 1 / 天真 gather 1 / 正确并发 6，见 [reports/concurrency.md](reports/concurrency.md) |
+| 并发下的账本一致性 | 已完成（2026-09-22，凭据以环境变量注入）：并发批与串行批各 12 题，账本新增行数都等于实际调用次数 12，见 [reports/ledger_under_concurrency.md](reports/ledger_under_concurrency.md) |
 
 真实跑出来的数字见 [RESULTS.md](RESULTS.md)；每个数字都注明了脚本与口径。
 

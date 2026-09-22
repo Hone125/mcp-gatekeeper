@@ -41,18 +41,26 @@
 | 噪声带尺子 正控 | 量出 0 | `python experiments/21_noise_band.py --fake stable`：两遍完全一样时必须量出 0 |
 | 噪声带尺子 负控 | 正好量出 3 | `python experiments/21_noise_band.py --fake jitter`：第二遍故意抖 3 题，必须正好量出 3 |
 | 配对统计自检 | 7 组通过 | `python experiments/20_pair_test.py --selftest`：合成数据，含措辞禁用词检查 |
-| 单元测试 | **604 passed** / 0 skipped，退出码 0 | `python -m pytest -q` |
+| HTTP 入口冒烟 | 20 / 20，退出码 0 | `python experiments/30_http_smoke.py`：真起子进程、真 TCP 端口；含 403 NO_TOKEN / 403 INSUFFICIENT_SCOPE / 200 三种状态码与「被护栏拦下 → 200」 |
+| HTTP 路由与工具表一致 | 6 / 6 | 同上：`GET /tools` 报出来的工具数 == `auth.TOOL_SCOPES` 键数 == 6，两边名字逐字相同 |
+| 并发实测峰值（三种跑法） | 串行 **1** / 天真 gather **1** / 正确并发 **6** | `python experiments/29_concurrency_bench.py`：24 条真调用，每条工具外面套 20 毫秒固定延迟当量具；峰值由带锁计数器**量**出来，不是按设定值写下的 |
+| 并发三种跑法的成功数 | 各 24 / 24（且调用数相同） | 同上：三种跑法干的是同一份活 —— 提速只能靠并发，不能靠少干活 |
+| 并发超时降级 | 1 条超时 + 23 条正常返回，退出码 0 | 同上：受控探针里塞一条必然超时的调用，`wait_for` 把它降级成一条结果记录，整批不塌 |
+| 单元测试 | **671 passed** / 0 skipped，退出码 0 | `python -m pytest -q` |
 | 产物可复现性 | 跑闸门前后的聚合哈希**相同**（两遍逐字节一致） | 见下面的「怎么自己验一遍」；哈希由 `tools/check.py --snapshot` 打印 |
 
 > **这一行的读数变过，旧值照实留在这里。** 本表最初写的是 `530 passed`，
 > 那是**阶段 5 那一版**的记录。此后每加一条用例它就变一次
-> （543 → 570 → 598+3 skipped → **604**），而这张表没有跟着改 ——
+> （543 → 570 → 598+3 skipped → 604），而这张表没有跟着改 ——
 > 表里别的数字都由脚本产出，唯独这一行是手抄的，**手抄的那一格最容易过期**。
 > 2026-09-19 按实测校准为 **604**（`python -m pytest -q`，收集 604 条）。
+> 2026-09-22 又按实测校准为 **671**：本轮新增了 `tests/test_dispatch.py`（派发器）、
+> `tests/test_http_api.py`（HTTP 路由与状态码映射）、`tests/test_concurrency.py`（15 条，
+> 含「实测峰值 == limit」与「`offload=False` 时峰值退化成 1」），一个用例都没删。
 > 逐次变化的条数说明见 `PROGRESS.md`「单元测试条数」那几节。
 > ★ 本行只报**当前**读数；历史读数属于哪一版，以 `PROGRESS.md` 与
 > `BLOCKERS.md` 的补记为准（那里同样保留 543 这类旧值）。
-| 台账式自检 | 32 条：PASS 29 / FAIL 0 / SKIP 3 / ERROR 0，退出码 0 | `python experiments/19_verify.py`；3 条 SKIP 全部是同一个理由「本轮未重跑，盘上已有实测产物」（需要模型凭据的那三条，见 `DECISIONS.md` D-44），**不是通过** |
+| 台账式自检 | 35 条：PASS 31 / FAIL 0 / SKIP 4 / ERROR 0，退出码 0 | `python experiments/19_verify.py`；4 条 SKIP 全部是同一个理由「本轮未重跑，盘上已有实测产物」（需要模型凭据的那几条，见 `DECISIONS.md` D-44），**不是通过**。旧读数是 32 条（PASS 29 / SKIP 3），本轮涨到 35 条是因为台账里**追加**了 29 / 30（各 PASS）与 31（SKIP）三条，一条旧条目都没改 |
 | 交付物核验 | 8 条：PASS 8 / FAIL 0 / SKIP 0，退出码 0 | `python experiments/25_deliverable_check.py`：文档里写的和仓库里对不对得上 |
 | 收尾自检 | 9 项全部通过，退出码 0 | `python experiments/26_final_selfcheck.py`，产物见 [reports/final_selfcheck.md](reports/final_selfcheck.md) |
 | 守门链 | 4 步全过，退出码 0 | `python tools/check.py`：退出码 = 卡在第一步 |
@@ -98,9 +106,19 @@ python tools/check.py --snapshot   # 应当还是同一个哈希
 | 配对检验 v1↔v3 | 不一致 **2** 题，净差 **+2**（v1 独对 2、v3 独对 0），**超出**噪声带 | 同上 |
 | 配对检验 v2↔v3 | 不一致 **3** 题，净差 **+3**（v2 独对 3、v3 独对 0），**超出**噪声带 | 同上 |
 | 口语问法 vs 正式问法 | 13 对：双对 11、双错 2、**不一致 0** —— 未观测到差异 | `experiments/13_text2sql_colloquial.py`：同一版（v3）下两种问法逐题配对 |
-| 模型调用次数 | **197** 次 | `experiments/12_cost_report.py`：读 `reports/usage_ledger.jsonl`，一行 = 一次调用，重写重试各算一次 |
-| 双向 token | 输入 **165820** / 输出 **4097** | 同上：取自模型返回的 `usage` 字段 |
+| 模型调用次数 | **298** 次 | `experiments/12_cost_report.py`：读 `reports/usage_ledger.jsonl`，一行 = 一次调用，重写重试各算一次 |
+| 双向 token | 输入 **191196** / 输出 **5749** | 同上：取自模型返回的 `usage` 字段 |
 | 金额 | 留空（`—`） | 同上：没有可引用的单价出处（要价目页 URL + 抓取日期）。**不用别家单价兜底，也不填 0** |
+| 并发下的账本对账 | 并发批 12 题、串行批 12 题；两批**各自**「账本新增行数 == `usage.calls` 之和 == 12」 | `python experiments/31_ledger_under_concurrency.py`：12 题 × 2 批（`limit=6` 与 `limit=1`），走 `dispatch` → `ask_database`。口径只认**行数**：一行账本 = 一次模型调用，重写重试各算一次 |
+| 并发批 vs 串行批的 token | 输入 3017 / 3017，输出 203 / 201 | 同上：输入侧逐字相同（同一批题、同一份 schema 提示）；输出侧差 2 —— 模型本身有不确定性，**这一项不要求相等**。真正的不变量是上一行的行数对账，不是 token 相等 |
+
+> **上面那两行的读数也变过，旧值照实留在这里。** 本轮之前是
+> 「197 次 / 输入 165820 / 输出 4097」，那是 2026-09-18 那次评测的账。
+> 2026-09-22 为了做并发下的账本对账又调了模型（连同开发期间的重跑），
+> 账本按设计只追加，于是总数涨到 **298**。`reports/usage_ledger.jsonl`
+> 里 2026-09-22 那一批共 101 行，每一行都对应一次真实调用，**没有补写、没有编造**；
+> 对账用的报告只统计**单批新增**的 12 行，与总数无关。旧值属于哪一版见
+> `PROGRESS.md` 的阶段记录。
 
 **p 值为什么不在这里再抄一遍**：`v1↔v3` 那一对的精确 p 值与
 `selfcheck.VERIFIED_COINCIDENCES` 里登记的一个「巧合数字」逐字相同，

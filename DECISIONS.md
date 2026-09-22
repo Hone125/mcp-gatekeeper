@@ -1951,3 +1951,98 @@ D-53 写的是「将来若真要**重写历史**，必须先做完这两步」�
 `PROGRESS.md` 阶段表第 8 行、`BLOCKERS.md` 开场白与卡点 4 的两处、`PROGRESS.md`
 那一轮阶段清单的三行、本文件 5 节里那条填充率输入。`reports/` 下的产物不手改，
 由脚本重跑刷新（D-51）。
+
+## D-56 HTTP 传输层与 asyncio 并发层：三件必须写清楚的事
+
+**背景。** 本仓原样只有 stdio 一个传输层，6 个工具全是同步函数、串行执行。
+本轮在**不另起项目、不改上游已有代码**的前提下向上长了两层：
+`mcp_server/dispatch.py`（名字 → 工具函数）、`mcp_server/http_api.py`（FastAPI 入口）、
+`mcp_server/concurrency.py`（限流 + 超时降级 + 阻塞调用挪出事件循环）。
+下面三节分别回答三个会被追问的问题。
+
+### ① 为什么加 HTTP 层，以及为什么它不和「不用 agent 框架」那条冲突
+
+**加它的理由不是「多一个入口显得完整」**，恰恰相反：工具层与传输层原来是**焊在一起**的。
+`server.py` 里「注册工具」「读参数」「鉴权」「返回」四件事编在同一个函数体里，
+于是「换一种传输」这件事没有办法只换传输 —— 只能把逻辑抄一份。
+`dispatch.py` 把「名字 → 工具函数 + 参数绑定 + 鉴权」抽出来，
+`http_api.py` 只是**照着 `auth.TOOL_SCOPES` 现生成路由**（不是第二份工具清单），
+请求体就是那个工具的 kwargs，响应体就是工具原本的返回值。
+
+**判据是「两处清单不许各写一份」**：`http_api.selfcheck()` 断言
+「路由名集合 == `TOOL_SCOPES` 键集合」，不一致就**拒绝启动**（退出码 1）。
+这条不是形式主义：两处独立维护的字符串，漏一处是**静默降级** ——
+端点还在、鉴权也在，只是它认不出那个工具了，没有任何日志会告诉你。
+
+**为什么不冲突。** `requirements.txt` 里「刻意不要 langchain 或任何 agent 框架」那条
+针对的是**替你决定调哪个工具、按什么顺序调**的编排器。FastAPI 不含这类东西：
+它只把 HTTP 请求翻译成一次函数调用，谁调谁、状态怎么流转，一行都没有外包出去
+（重写状态机仍然是 `t2sql_core.py` 手写的那台）。这一条已经写进 `requirements.txt`
+的注释里，免得下一个读到那句话的人以为自相矛盾。
+
+**状态码不一刀切**（`http_api.status_for()`，逐条断言在 `tests/test_http_api.py`）：
+拒绝 → 403（`code` 原样带回，`NO_TOKEN` 与 `INSUFFICIENT_SCOPE` 可区分）、
+未知工具 → 404、参数绑不上 → 400；**被 SQL 护栏拦下的查询是 200** ——
+护栏拦下是一次**业务结论**（请求被正确执行并给出了结论），
+报 4xx 会让「护栏工作正常」在监控上看起来像「调用失败」。
+
+### ② 天真 gather 为什么不提速：这是被保留的负结果
+
+`experiments/29_concurrency_bench.py` 跑三种跑法，同一份活、同一个量具
+（每条工具外面套一个固定延迟，用一个**带锁的计数器**量同时在跑的最大数量）：
+
+| 跑法 | 做法 | 实测峰值 |
+|---|---|---|
+| A 串行 | 逐个 await | 1 |
+| B 天真 gather | `run_many(offload=False)`：直接在事件循环里调同步函数 | **1** |
+| C 正确并发 | `run_many(limit=6, offload=True)`：`to_thread` 挪出去 | 6 |
+
+三种跑法的**成功数都是 24 / 24** —— 提速不能靠少干活，所以这一栏必须一起报。
+
+**B 不提速的原因**：那 6 个工具是**同步函数**，里面是阻塞调用。
+在事件循环里直接调它，事件循环就被占住；协程之间**根本没有让出点**，
+`gather` 于是退化成串行。这不是 asyncio 的 bug，也不是「Python 不支持并发」，
+而是**「并发」和「并行」是两回事**：asyncio 给的是「等待时去干别的」，
+前提是**等待真的以 await 的形式暴露出来**；阻塞调用没有暴露，所以没得等。
+
+**所以 `to_thread` 不是优化，是前提。** 一个开关
+（`offload`）同时是这条结论的**量具**：`tests/test_concurrency.py` 里有一条用例
+专门钉住「`offload=False` 时峰值 == 1」—— 哪天有人把 `to_thread` 拿掉，
+这条用例会红，而不是等并发度静默退化成 1。
+
+**代价照实写**：`wait_for` 超时只能**放弃 await**，`to_thread` 里那条线程
+它杀不掉，会自己跑完（线程里如果还在写账本，那就是在写）。
+既然杀不掉，就不假装杀掉了：报告里只报「1 条超时 + 其余正常返回」这个计数，
+调度器的注释里也点明线程回收不了。这一点在 `tests/test_concurrency.py` 里
+用一条 `threading.Event` 用例钉住：被放弃的任务**确实跑完了**。
+
+### ③ 为什么耗时读数不落盘
+
+**因为它是逐次可变的读数，落盘会毁掉 `--snapshot` 的可复现性**（同族理由见 D-38）。
+`reports/` 下不许有小数秒耗时和绝对路径，`tests/test_repo_hygiene.py` 静态守着这一条 ——
+一旦某个产物里混进一个时钟读数，`git status` 就不再是「有没有变化」的信号，
+「跑两遍产物逐字节一致」这条也就假了。
+
+所以 `29` 的产物 `reports/concurrency.md` **只放计数与判定**：
+N、limit、三种跑法各自的成功/超时/异常数、实测峰值、三种跑法的调用数是否相同。
+耗时只打终端，另存 `cache/concurrency_timing.json`（`cache/` 已在 `.gitignore` 里，不入库）。
+两遍跑下来 `reports/concurrency.{md,json}` 的 sha256 逐字节相同 —— 这是**跑出来**的，不是声称的。
+
+★ **同批查出来的一个坑**：压日志噪声时，按 `logging.getLogger("httpx")` 设 WARNING
+一行都没压掉（stderr 里照旧几十行 `HTTP Request: POST ...`）。真正的原因不是 level 设错了，
+而是**发日志的 logger 叫 `httpx2`** —— `openai` 3.x 的默认 HTTP 客户端是 **HTTPX2**
+（`Requires-Dist: httpx2<3,>=2.7.0`），本仓直接装的 `httpx` 只服务于冒烟脚本与 TestClient。
+处置：`experiments/31_ledger_under_concurrency.py` 里的 `quiet_http_client_logs()`
+**扫 `logging.Logger.manager.loggerDict`**，把前缀是 `httpx` / `httpx2` / `httpcore` / `httpcore2`
+的一律压到 WARNING，并**把压掉的名字打出来**（静音本身也要留痕，否则下次没人知道压了什么）。
+实测版本的记法在 `requirements.txt` 的传递依赖注释里（HTTPX2 是纯 Python，不影响
+「有没有编译扩展」那句话的真假）。
+
+**顺带一条不是结论的结论**：`cost.LOCK` 是 `threading.Lock`，
+在 `to_thread` 之下才真正成为必需品 —— 多个工作线程同时 `record()`，
+没有这把锁就会写坏行。它在串行时代就已经在，本轮才有人证明它**不是摆设**。
+并发下的对账读数见 `reports/ledger_under_concurrency.md`：
+两批各 12 题，「账本新增行数 == `usage.calls` 之和 == 12」。
+
+**用例：`pytest` 604 → 671**（全绿，退出码 0；新增 `tests/test_dispatch.py`、
+`tests/test_http_api.py`、`tests/test_concurrency.py`，一条旧用例都没删）。旧读数不覆盖。

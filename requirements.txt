@@ -23,6 +23,12 @@
 # 传递依赖实测版本（写在这里是因为它们决定了「编译扩展」那句话的真假）：
 #   pydantic==2.13.5 / pydantic-core==2.46.5 / anyio==4.15.1
 #   （starlette 也是传递依赖，但它同时被本仓库直接 import，所以在下面单列成真依赖）
+#   httpx2==2.13.0 + httpcore2==2.13.0：**openai 3.x 的默认 HTTP 客户端不是 httpx，
+#   而是 HTTPX2**（`Requires-Dist: httpx2<3,>=2.7.0`）。真正的模型流量走的是它，
+#   下面那个 httpx==0.28.1 只服务于冒烟脚本与 starlette 的 TestClient —— 两件事、
+#   两个包，别混。这条是压日志噪声时查出来的：按 `logging.getLogger("httpx")` 压，
+#   一行都没压掉（见 experiments/31_ledger_under_concurrency.py 的 quiet_http_client_logs）。
+#   httpx2 是纯 Python（无 .pyd/.so），所以它不影响「有没有编译扩展」那句话。
 
 mcp==2.2.0              # MCP 协议 SDK（2.x：入口是 mcp.server.mcpserver.MCPServer）
 PyJWT==2.14.0           # HS256 令牌签发与校验

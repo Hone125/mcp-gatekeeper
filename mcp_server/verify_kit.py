@@ -113,6 +113,11 @@ EXIT_LEDGER: list[dict] = [
      "why": "噪声带尺子负控：第二遍故意抖 3 题，必须正好量出 3"},
     {"cmd": ["experiments/20_pair_test.py", "--selftest"], "expect": 0,
      "why": "配对统计与措辞自检：合成数据，7 组"},
+    {"cmd": ["experiments/29_concurrency_bench.py"], "expect": 0,
+     "why": "并发实测：同一批 24 条真调用的三种跑法，实测峰值 A 1 / B 1 / C 6。"
+            "**B 那一行是负结果，刻意留着**（见 reports/concurrency.md 第二节）"},
+    {"cmd": ["experiments/30_http_smoke.py"], "expect": 0,
+     "why": "HTTP 入口冒烟：真起子进程、真端口、真 TCP，20 项检查 + 产物字节可复现"},
     {"cmd": ["experiments/09_text2sql_eval.py"], "expect": 0, "needs_llm": True,
      "not_run": "reports/text2sql_NOT_RUN.md",
      "result": "reports/text2sql_results.v3.json",
@@ -128,6 +133,12 @@ EXIT_LEDGER: list[dict] = [
      "result": "reports/noise_band.json",
      "alt": NO_DB_ALT,
      "why": "实测噪声带（需要模型凭据）"},
+    {"cmd": ["experiments/31_ledger_under_concurrency.py"], "expect": 0, "needs_llm": True,
+     "not_run": "reports/ledger_under_concurrency_NOT_RUN.md",
+     "result": "reports/ledger_under_concurrency.json",
+     "why": "并发下的账本对账：并发一批 + 串行一批，账本新增行数必须等于实际调用次数"
+            "（需要模型凭据）。**不挂 `alt`**：它自己造临时库，不依赖 `data/`，"
+            "所以「没有数据」不是它能拿 5 的理由 —— 唯一的 5 是「没有凭据」"},
     {"cmd": ["experiments/12_cost_report.py"], "expect": 0,
      "not_run": "reports/cost_report.md",
      "alt": {5: "账本为空（尚无任何真实模型调用）"},

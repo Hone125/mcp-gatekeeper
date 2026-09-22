@@ -15,10 +15,10 @@
 
 | 来源标签 | 模型 | 调用次数 | 输入 token | 输出 token | 金额 | 单价口径 |
 |---|---|---|---|---|---|---|
-| t2sql:v3 | deepseek-ai/DeepSeek-V3 | 125 | 108448 | 2239 | — | 无单价条目 |
+| t2sql:v3 | deepseek-ai/DeepSeek-V3 | 226 | 133824 | 3891 | — | 无单价条目 |
 | t2sql:v1 | deepseek-ai/DeepSeek-V3 | 36 | 28344 | 947 | — | 无单价条目 |
 | t2sql:v2 | deepseek-ai/DeepSeek-V3 | 36 | 29028 | 911 | — | 无单价条目 |
-| **合计** | — | **197** | **165820** | **4097** | — | — |
+| **合计** | — | **298** | **191196** | **5749** | — | — |
 
 > 金额全部留空：没有可引用的单价。**这不等于免费** —— 要算金额，把 `MCP_TOOLKIT_PRICES` 指向一个带 `source` / `as_of` 的单价 JSON。
 
@@ -26,7 +26,7 @@
 
 | 来源标签 | 调用次数 |
 |---|---|
-| t2sql:v3 | 125 |
+| t2sql:v3 | 226 |
 | t2sql:v1 | 36 |
 | t2sql:v2 | 36 |
 
@@ -231,3 +231,104 @@
 | 2026-09-18T15:50:54 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 862 | 12 |
 | 2026-09-18T15:50:56 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 865 | 11 |
 | 2026-09-18T15:51:12 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 862 | 14 |
+| 2026-09-22T11:53:58 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:53:59 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 7 |
+| 2026-09-22T11:53:59 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:53:59 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 33 |
+| 2026-09-22T11:53:59 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 26 |
+| 2026-09-22T11:54:00 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-09-22T11:54:00 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 7 |
+| 2026-09-22T11:54:00 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 255 | 12 |
+| 2026-09-22T11:54:01 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 251 | 21 |
+| 2026-09-22T11:54:01 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 18 |
+| 2026-09-22T11:54:02 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-09-22T11:54:02 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 56 |
+| 2026-09-22T11:54:03 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:54:05 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:54:07 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 11 |
+| 2026-09-22T11:54:09 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 32 |
+| 2026-09-22T11:54:10 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 7 |
+| 2026-09-22T11:54:12 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 26 |
+| 2026-09-22T11:54:14 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 255 | 11 |
+| 2026-09-22T11:54:16 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 7 |
+| 2026-09-22T11:54:19 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 44 |
+| 2026-09-22T11:54:21 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 251 | 21 |
+| 2026-09-22T11:54:23 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 18 |
+| 2026-09-22T11:54:24 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-09-22T11:54:53 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:54:53 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:54:53 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 7 |
+| 2026-09-22T11:54:54 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 11 |
+| 2026-09-22T11:54:54 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 26 |
+| 2026-09-22T11:54:54 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 32 |
+| 2026-09-22T11:54:54 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 7 |
+| 2026-09-22T11:54:55 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-09-22T11:54:55 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 251 | 21 |
+| 2026-09-22T11:54:56 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 44 |
+| 2026-09-22T11:55:16 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 255 | 12 |
+| 2026-09-22T11:55:16 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 17 |
+| 2026-09-22T11:55:18 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:55:19 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:55:21 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 13 |
+| 2026-09-22T11:55:24 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 32 |
+| 2026-09-22T11:55:25 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 7 |
+| 2026-09-22T11:55:28 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 26 |
+| 2026-09-22T11:55:29 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 255 | 11 |
+| 2026-09-22T11:55:31 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 7 |
+| 2026-09-22T11:55:33 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 43 |
+| 2026-09-22T11:55:35 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 251 | 21 |
+| 2026-09-22T11:55:37 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 17 |
+| 2026-09-22T11:55:38 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-09-22T11:57:09 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 10 |
+| 2026-09-22T11:57:09 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:57:09 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:57:09 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 7 |
+| 2026-09-22T11:57:10 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 26 |
+| 2026-09-22T11:57:10 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 32 |
+| 2026-09-22T11:57:10 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 255 | 11 |
+| 2026-09-22T11:57:10 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 7 |
+| 2026-09-22T11:57:11 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 17 |
+| 2026-09-22T11:57:11 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 251 | 21 |
+| 2026-09-22T11:57:11 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-09-22T11:57:13 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 44 |
+| 2026-09-22T11:57:14 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:57:15 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:57:17 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-09-22T11:57:19 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 32 |
+| 2026-09-22T11:57:20 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 7 |
+| 2026-09-22T11:57:23 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 26 |
+| 2026-09-22T11:57:24 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 255 | 11 |
+| 2026-09-22T11:57:25 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 7 |
+| 2026-09-22T11:57:28 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 43 |
+| 2026-09-22T11:57:30 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 251 | 21 |
+| 2026-09-22T11:57:31 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 17 |
+| 2026-09-22T11:57:32 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-09-22T11:58:35 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:58:55 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:59:17 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T11:59:41 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T12:00:03 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T12:00:38 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T12:00:38 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 7 |
+| 2026-09-22T12:00:38 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 13 |
+| 2026-09-22T12:00:38 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 32 |
+| 2026-09-22T12:00:38 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T12:00:39 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 26 |
+| 2026-09-22T12:00:40 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 255 | 12 |
+| 2026-09-22T12:00:40 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 7 |
+| 2026-09-22T12:00:40 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-09-22T12:00:40 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 251 | 21 |
+| 2026-09-22T12:00:40 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 17 |
+| 2026-09-22T12:00:41 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 44 |
+| 2026-09-22T12:00:42 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T12:00:43 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 248 | 6 |
+| 2026-09-22T12:00:45 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-09-22T12:00:48 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 33 |
+| 2026-09-22T12:00:49 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 7 |
+| 2026-09-22T12:00:51 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 26 |
+| 2026-09-22T12:00:52 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 255 | 11 |
+| 2026-09-22T12:00:53 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 7 |
+| 2026-09-22T12:00:57 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 250 | 43 |
+| 2026-09-22T12:00:59 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 251 | 21 |
+| 2026-09-22T12:01:01 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 17 |
+| 2026-09-22T12:01:02 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
