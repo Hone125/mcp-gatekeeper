@@ -1,0 +1,208 @@
+{
+  "caliber": "账本新增行数 == 状态机实际调用次数（usage.calls 逐题相加）",
+  "questions": 12,
+  "timeout_seconds_per_question": 90.0,
+  "batches": [
+    {
+      "label": "第一批（并发）",
+      "limit": 6,
+      "summary": {
+        "n": 12,
+        "ok": 12,
+        "timeout": 0,
+        "error": 0
+      },
+      "expected_calls": 12,
+      "ledger": {
+        "n": 12,
+        "tok_in": 3017,
+        "tok_out": 203,
+        "sources": [
+          "t2sql:v3"
+        ],
+        "models": [
+          "deepseek-ai/DeepSeek-V3"
+        ],
+        "attempts_recorded": 12
+      },
+      "per_question": [
+        {
+          "question": "一共有几张专辑",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "一共有几位歌手",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "2005 年发行的专辑叫什么名字",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "每位歌手各有几张专辑",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "最早的专辑是哪一年发行的",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "标题叫 First 的专辑是谁的",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "有几张专辑是 2000 年以后发行的",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "列出所有专辑的标题和发行年份",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "哪位歌手的专辑最多",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "发行专辑最多的年份是哪一年",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "有没有 1999 年发行的专辑",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "专辑标题里带 ir 的有几张",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        }
+      ]
+    },
+    {
+      "label": "第二批（串行）",
+      "limit": 1,
+      "summary": {
+        "n": 12,
+        "ok": 12,
+        "timeout": 0,
+        "error": 0
+      },
+      "expected_calls": 12,
+      "ledger": {
+        "n": 12,
+        "tok_in": 3017,
+        "tok_out": 201,
+        "sources": [
+          "t2sql:v3"
+        ],
+        "models": [
+          "deepseek-ai/DeepSeek-V3"
+        ],
+        "attempts_recorded": 12
+      },
+      "per_question": [
+        {
+          "question": "一共有几张专辑",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "一共有几位歌手",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "2005 年发行的专辑叫什么名字",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "每位歌手各有几张专辑",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "最早的专辑是哪一年发行的",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "标题叫 First 的专辑是谁的",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "有几张专辑是 2000 年以后发行的",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "列出所有专辑的标题和发行年份",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "哪位歌手的专辑最多",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "发行专辑最多的年份是哪一年",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "有没有 1999 年发行的专辑",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        },
+        {
+          "question": "专辑标题里带 ir 的有几张",
+          "status": "ok",
+          "attempts": 1,
+          "calls": 1
+        }
+      ]
+    }
+  ],
+  "money": [
+    {
+      "model": "deepseek-ai/DeepSeek-V3",
+      "amount": "—",
+      "reason": "无单价条目"
+    }
+  ]
+}
