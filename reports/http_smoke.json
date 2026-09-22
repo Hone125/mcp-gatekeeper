@@ -1,0 +1,157 @@
+{
+  "rows": [
+    {
+      "label": "存活探针 GET /healthz",
+      "expect": "200 且 ok=True",
+      "got": "200 且 ok=True",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "GET /tools 的工具数与 TOOL_SCOPES 一致",
+      "expect": "6 个",
+      "got": "6 个：list_tables, get_schema, run_sql, ask_database, search_passages, get_passage",
+      "ok": true,
+      "note": "名字清单只有 auth.TOOL_SCOPES 一个真值源，路由也是照着它现挂的"
+    },
+    {
+      "label": "GET /tools 里每个工具的 scope 与 TOOL_SCOPES 逐条一致",
+      "expect": "{'list_tables': 'db:read', 'get_schema': 'db:read', 'run_sql': 'db:query', 'ask_database': 'db:query', 'search_passages': 'kb:read', 'get_passage': 'kb:read'}",
+      "got": "{'list_tables': 'db:read', 'get_schema': 'db:read', 'run_sql': 'db:query', 'ask_database': 'db:query', 'search_passages': 'kb:read', 'get_passage': 'kb:read'}",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "OpenAPI 文档里 6 条工具路径都在（`/docs` 能点着调）",
+      "expect": "6 条 POST /tools/<工具名>",
+      "got": "6 条：/tools/ask_database, /tools/get_passage, /tools/get_schema, /tools/list_tables, /tools/run_sql, /tools/search_passages",
+      "ok": true,
+      "note": "文档是框架按真实路由生成的，不是另写一份"
+    },
+    {
+      "label": "无令牌（空请求体）：403 + NO_TOKEN",
+      "expect": "403 且 code=NO_TOKEN",
+      "got": "403 且 code=NO_TOKEN",
+      "ok": true,
+      "note": "空请求体是「没带令牌」，不是「请求畸形」；`token` 缺席由派发器补 None 交给 guard 判，于是这里得到 403 而不是 400"
+    },
+    {
+      "label": "伪造签名：403 + BAD_SIGNATURE",
+      "expect": "403 且 code=BAD_SIGNATURE",
+      "got": "403 且 code=BAD_SIGNATURE",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "令牌有效但 scope 不足：403 + INSUFFICIENT_SCOPE",
+      "expect": "403 且 code=INSUFFICIENT_SCOPE",
+      "got": "403 且 code=INSUFFICIENT_SCOPE",
+      "ok": true,
+      "note": "同一把钥匙开不了所有的门 —— 工具级 scope 在 HTTP 这一侧同样生效"
+    },
+    {
+      "label": "被拒时响应体里没有业务字段",
+      "expect": "不含 rows / sql",
+      "got": "['code', 'denied', 'detail', 'ok', 'tool']",
+      "ok": true,
+      "note": "鉴权挡在业务代码之前，SQL 根本没被执行"
+    },
+    {
+      "label": "未知工具：404 + UNKNOWN_TOOL（而不是默认的 {\"detail\":\"Not Found\"}）",
+      "expect": "404 且 code=UNKNOWN_TOOL",
+      "got": "404 且 code=UNKNOWN_TOOL，detail=\"未登记的工具 'no_such_tool'\"",
+      "ok": true,
+      "note": "与 stdio 侧同一个拒绝体：码由 auth.guard 统一给出，两处不各说各话"
+    },
+    {
+      "label": "缺必填参数：400 + BAD_ARGUMENTS（不是 403）",
+      "expect": "400 且 code=BAD_ARGUMENTS",
+      "got": "400 且 code=BAD_ARGUMENTS",
+      "ok": true,
+      "note": "少给一个字段若报成鉴权失败，排错的人会跑去查令牌，而问题在请求体里"
+    },
+    {
+      "label": "请求体不是合法 JSON：400 + BAD_ARGUMENTS",
+      "expect": "400 且 code=BAD_ARGUMENTS",
+      "got": "400 且 code=BAD_ARGUMENTS",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "令牌齐全：200 且列出真实表名（★ 反证）",
+      "expect": "200 且表名 {album, artist}",
+      "got": "200 且 ok=True，表名 ['album', 'artist']",
+      "ok": true,
+      "note": "断言的是真的读到了库里那两张表，不是「没被拒」"
+    },
+    {
+      "label": "GET 结构：200 且列名与库里一致",
+      "expect": "200 且含 artist_id / title / year",
+      "got": "200 且列名 ['artist_id', 'id', 'title', 'year']",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "真 SQL：200 且返回真行",
+      "expect": "200 且 rows=[[A],[B]]",
+      "got": "200 且 rows=[['A'], ['B']]",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "★ 被 SQL 护栏拦下：**200** 且 blocked=True",
+      "expect": "200 且 blocked=True（业务结论，不是传输失败）",
+      "got": "200 且 blocked=True",
+      "ok": true,
+      "note": "请求被正确地接收、执行、并得出了「这条 SQL 不许跑」的结论。报成 4xx/5xx 的话，调用方会去重试或查网络，而正确处置是看 SQL 写错了什么"
+    },
+    {
+      "label": "护栏拦下时返回体里没有 rows（说明真没执行）",
+      "expect": "不含 rows 或 rows 为空",
+      "got": "blocked=True，有 rows=False",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "知识库检索：200 且只命中该命中的那篇",
+      "expect": "200 且命中含 d2（茶經），不含 d1（兵法）",
+      "got": "200 且命中 ['d2']",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "取原文片段：200 且正文非空",
+      "expect": "200 且 text 里有原文",
+      "got": "200 且正文 28 字：'茶之為飲，發乎神農氏。其水，用山水上，江水中，井'",
+      "ok": true,
+      "note": ""
+    },
+    {
+      "label": "★ 需要模型的工具在 scope 不足时同样 403（证明拒绝发生在碰模型之前）",
+      "expect": "403 且 code=INSUFFICIENT_SCOPE",
+      "got": "403 且 code=INSUFFICIENT_SCOPE",
+      "ok": true,
+      "note": "本实验不带模型凭据。真去调了模型的话，这里会是 500（缺少环境变量），而不是 403 —— 所以这条断言本身就是「鉴权挡在业务之前」的证据"
+    }
+  ],
+  "edge_rows": [
+    {
+      "label": "服务端 stdout 里一行人话都没有（端口那行在 stderr）",
+      "expect": "stdout 无内容；stderr 里有「监听 host:port」",
+      "got": "stdout 0 行；stderr 有端口那一行",
+      "ok": true
+    }
+  ],
+  "cases": 19,
+  "pass": 19,
+  "edge_cases": 1,
+  "edge_pass": 1,
+  "notes": [
+    "**未知工具走的是真 404**：`POST /tools/nope` 匹配不到任何路由，Starlette 抛 404，被一个只在 `/tools/` 前缀下生效的异常处理器改写成与 stdio 侧同一个拒绝体。其他路径的 404 行为原样保留。",
+    "**被护栏拦下是 200**：这是本层唯一一个「看起来该报错、实际报成功」的映射。判定依据是「请求被正确处理并得出结论了吗」—— 是，所以是成功；它和 403 的区别是「你的 SQL 写得不对」与「你没有权限」，调用方对这两件事的处置完全不同。",
+    "**`DEV_SECRET_REFUSED` 映射成 500 而不是 403**：这个码的含义是「服务端自己在严格模式下还在用内置开发密钥」，是服务端的配置问题。报 403 等于把运维的锅甩给调用方。",
+    "**缺参数与没权限是两个码**：少给 `sql` 是 400 `BAD_ARGUMENTS`，不带令牌是 403 `NO_TOKEN`。混成一个的话，排错的人会查错方向。"
+  ],
+  "n_cases": 20,
+  "n_pass": 20
+}

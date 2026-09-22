@@ -32,7 +32,7 @@
       "title": "文档里的命令都成立",
       "caliber": "扫描全部 `.md` 里的 `python 某某.py …`：脚本要在、用到的 `--flag` 要在源码文本里出现",
       "status": "PASS",
-      "detail": "71 条命令，脚本与参数全部对得上",
+      "detail": "72 条命令，脚本与参数全部对得上",
       "n_hits": 0,
       "hits": []
     },
@@ -68,7 +68,7 @@
       "title": "requirements.txt 覆盖代码里的第三方 import",
       "caliber": "解析 `mcp_server/*.py` 的顶层 import，去掉标准库与本包自身；`import jwt` → PyJWT、`import dotenv` → python-dotenv 这两个名字不一致的单独映射。反方向（声明了没用到）只记录不判失败",
       "status": "PASS",
-      "detail": "5 个第三方包全部已声明；未被 import 的声明：pytest",
+      "detail": "8 个第三方包全部已声明；未被 import 的声明：httpx、pytest",
       "n_hits": 0,
       "hits": []
     }

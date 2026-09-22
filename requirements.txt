@@ -1,4 +1,11 @@
-# 运行时依赖（全部为纯 Python 包，无编译扩展，无 GPU 依赖）
+# 运行时依赖（无 GPU 依赖）
+#
+# ⚠️ 这一行原来写的是「全部为纯 Python 包，无编译扩展」。**那句话是假的**，
+#    改成实话：`pydantic-core` 是 Rust 编译扩展，随 pydantic v2 一起来
+#    （pydantic 由 mcp 传递引入，不是本仓库直接声明）。它在 PyPI 上有
+#    Windows / macOS / Linux 各架构的预编译 wheel，所以 `pip install` 不需要
+#    Rust 工具链；只有在没有对应 wheel 的平台上才需要本地编译 —— 那种情况下
+#    装不上的是 pydantic，不是本仓库的代码。实测装到的版本见下面注释。
 #
 # 版本号是实测通过的版本，不是「最低要求」。直接 `pip install -r requirements.txt`
 # 会装到这一组版本上，本仓库的全部脚本与测试都在这一组版本下跑通过。
@@ -6,8 +13,16 @@
 # 不需要的东西（刻意的）：
 #   - 不需要向量库 / embedding 依赖：知识库检索用 stdlib 的 sqlite3 + FTS5 实现
 #   - 不需要 langchain 或任何 agent 框架：MCP 工具层与状态机都是手写的
+#     （`fastapi` **不属于这一类**，别把它和 agent 框架混为一谈：agent 框架是
+#      「替你决定调哪个工具、按什么顺序调」的编排器；FastAPI 只是一层 HTTP 传输，
+#      底下调的仍然是本仓库手写的那 6 个函数，路由表也是照着 `auth.TOOL_SCOPES`
+#      现生成的。谁调谁、状态怎么流转，一行都没有外包出去。）
 #   - 不需要 numpy / pandas：评测比较是纯 Python 的元组比较
 #   - 不需要 sqlparse：SQL 护栏是正则 + sqlite3 引擎级 authorizer 两层，不用 SQL 解析器
+#
+# 传递依赖实测版本（写在这里是因为它们决定了「编译扩展」那句话的真假）：
+#   pydantic==2.13.5 / pydantic-core==2.46.5 / anyio==4.15.1
+#   （starlette 也是传递依赖，但它同时被本仓库直接 import，所以在下面单列成真依赖）
 
 mcp==2.2.0              # MCP 协议 SDK（2.x：入口是 mcp.server.mcpserver.MCPServer）
 PyJWT==2.14.0           # HS256 令牌签发与校验
@@ -15,5 +30,15 @@ openai==3.14.0          # OpenAI 兼容客户端（任何兼容端点都能用�
 python-dotenv==1.2.3    # 读取 .env（只在需要 LLM 的链路上用到）
 jieba==0.42.1           # 中文切词，供知识库建 FTS5 索引用
 
+# HTTP 入口。`uvicorn` / `starlette` 本来就以 mcp 的传递依赖装着，这里**显式钉住**：
+# 直接 `import` 的东西不该靠别人顺带装 —— 哪天 mcp 换了 ASGI 服务器，本仓库
+# 会在装依赖时就暴露，而不是在起服务时才发现。`deliverable_kit` 的 G8 核对这一条
+# （它就是这么抓出来的：`http_api.py` 里 `from starlette.exceptions import ...`
+#   一度只写在注释里，G8 直接判 FAIL —— 注释不算声明）。
+fastapi==0.141.1        # HTTP 路由 + OpenAPI 文档（/docs、/openapi.json 免费得到）
+starlette==1.6.0        # 直接用它的 HTTPException 改写 /tools/ 下的 404 响应体
+uvicorn==0.53.0         # ASGI 服务器（服务端模式自己 bind 好 socket 再交给它，见 http_api.main）
+
 # 开发/评测依赖
 pytest==9.1.1
+httpx==0.28.1           # 冒烟脚本与 TestClient 用的 HTTP 客户端（starlette 的 TestClient 依赖它）
