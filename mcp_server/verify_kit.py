@@ -372,6 +372,15 @@ VOLATILE_RES = (
     re.compile(r"\bin \d+\.\d+s\b"),          # pytest：`513 passed in 22.28s`
     re.compile(r"\d+\.\d+\s*s(?![a-zA-Z])"),  # `calls=1 0.02s`
     re.compile(r"\d+\.\d+\s*秒"),             # 本仓自己的打印：`7.0 秒后失败`
+    # pytest 的**第二种**耗时形态。第 4 条是补齐，不是新增口径：
+    # `_pytest/terminal.py::format_session_duration` 在 `seconds < 60` 时返回
+    # `f"{seconds:.2f}s"`，**在 `seconds >= 60` 时返回 `f"{seconds:.2f}s ({dt})"`** ——
+    # 也就是同一个读数多带一个 `(H:MM:SS)`。前三条只吃掉前半截，括号原样留下，
+    # 于是「同一次运行，套件跑进 60 秒以内就干净、超过 60 秒就脏」——
+    # 一台慢一点的机器（或一次冷启动）就能让 `reports/verify.md` 每次显示「已修改」，
+    # 而三条正则一条都不报。实测：`604 passed in 79.45s (0:01:19)` 掩码后得到
+    # `604 passed 〔耗时已隐去〕 (0:01:19)`，括号里的读数进了产物。
+    re.compile(r"\(\d+:\d{2}:\d{2}\)"),        # pytest：`604 passed in 79.45s (0:01:19)`
 )
 
 

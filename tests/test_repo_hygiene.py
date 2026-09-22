@@ -385,6 +385,22 @@ def test_the_wall_clock_scan_would_actually_catch_a_reading(tmp_path):
     assert len(hits) == 1, "整数秒被误判成了时钟读数"
     assert "passed in" in hits[0].text
 
+    # ★ 补的一条：pytest 的**第二种**耗时形态，只有套件跑满 60 秒才会出现。
+    # `format_session_duration` 在 `seconds >= 60` 时返回 `f"{seconds:.2f}s ({dt})"`，
+    # 前三条正则只吃掉 `in 22.51s`，括号里的 `(H:MM:SS)` 原样留在产物里 ——
+    # 「同一份代码，跑得快就干净、跑得慢就脏」。这一台实测踩到了，
+    # 详见 `verify_kit.VOLATILE_RES` 第 4 条上方的说明。
+    (tmp_path / "reports" / "slow_run.md").write_text(
+        "604 passed 〔耗时已隐去〕 (0:01:19)\n", encoding="utf-8")
+    hits = _volatile_hits(tmp_path / "reports")
+    assert len(hits) == 2, "pytest 的 `(H:MM:SS)` 形态没有被抓到"
+    assert any(h.needle == "(0:01:19)" for h in hits), \
+        f"抓到的不是括号里的读数：{[h.needle for h in hits]}"
+    # 反方向再来一次：括号里不是时钟的圆括号不许误伤。
+    (tmp_path / "reports" / "slow_run.md").write_text(
+        "工具数（6 个）与 scope（db:read）都一致\n", encoding="utf-8")
+    assert len(_volatile_hits(tmp_path / "reports")) == 1, "普通圆括号被误判了"
+
 
 def test_every_report_that_reports_numbers_has_a_caliber_section():
     """有数字的报告必须有「口径」小节。这是 §8 自检第 6 项，在这里也钉一遍。
