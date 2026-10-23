@@ -29,7 +29,7 @@
 | S5 | 密钥文件（.env / *.key / *.pem …） | PASS | 0 命中 |
 | S6 | 密钥形态（长得像密钥的文本） | PASS | 0 命中 |
 | S7 | 作者机器的绝对路径 | PASS | 0 命中 |
-| S8 | 每个报了数字的报告都有「口径」小节 | PASS | 21 份报告，其中 1 份无数字（天然豁免） |
+| S8 | 每个报了数字的报告都有「口径」小节 | PASS | 20 份报告，其中 1 份无数字（天然豁免） |
 | A1 | 噪声带：实测结果 vs 未完成声明 | PASS | 有实测结果 |
 | A2 | Text2SQL：逐题记录 vs 未完成声明 | PASS | 有实测结果 |
 | A3 | 口语化对比：结果 vs 未完成声明 | PASS | 有实测结果 |
@@ -54,7 +54,7 @@
 | X31_ | experiments/31_ledger_under_concurrency.py | SKIP | 本轮未重跑；盘上已有实测产物 reports/ledger_under_concurrency.json |
 | X12_ | experiments/12_cost_report.py | PASS | 退出码 0 |
 | X25_ | experiments/25_deliverable_check.py | PASS | 退出码 0 |
-| P1 | python -m pytest | PASS | 退出码 0 | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html / 699 passed, 1 warning 〔耗时已隐去〕 〔耗时已隐去〕（引用前已隐去敏感形态与耗时读数） |
+| P1 | python -m pytest | PASS | 退出码 0 | -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html / 699 passed, 1 warning 〔耗时已隐去〕（引用前已隐去敏感形态与耗时读数） |
 | P2 | 服务端工具注册表自检 | PASS | 一致 |
 | S9 | 报告自身不带污染 | PASS | 0 命中 |
 
