@@ -114,20 +114,25 @@ def grade_one(q: dict, result: dict, conn: sqlite3.Connection) -> dict:
 # ---------------------------------------------------------------- 跑一版
 def run_version(version: str, qs: list[dict], conn: sqlite3.Connection,
                 db: Path, out_json: Path, llm=None, record_cost: bool = True,
-                label: str = "") -> tuple[list[dict], list[str]]:
+                label: str = "", run_fn=None) -> tuple[list[dict], list[str]]:
     """跑完一版。**逐题落盘** —— 中断之后能看出跑到哪儿了，也方便续跑。
 
     `label` 只影响落盘文件里的标记与进度输出（噪声带那一步要跑两遍同一个版本，
     两遍得能分开）。
+
+    `run_fn` 是被测的那一套状态机实现，不传就是手写版 `t2sql_core.run`（原来的行为）；
+    `09_text2sql_eval.py --impl graph` 传的是 `t2sql_graph.run`。两版签名与返回体一致，
+    所以判分、落盘一行都不用分叉 —— 口径仍然只在这一处。
     """
+    run_fn = run_fn or t2sql_core.run
     records: list[dict] = []
     errors: list[str] = []
 
     for i, q in enumerate(qs, 1):
         t0 = time.monotonic()
         try:
-            result = t2sql_core.run(q["question"], version=version, db_path=db,
-                                    llm=llm, record_cost=record_cost)
+            result = run_fn(q["question"], version=version, db_path=db,
+                            llm=llm, record_cost=record_cost)
         except Exception as e:  # noqa: BLE001
             # 模型层的问题（网络、限流、配额）**不许**伪装成「模型答错了」。
             errors.append(f"{q['id']} 调用失败：{type(e).__name__}: {e}")

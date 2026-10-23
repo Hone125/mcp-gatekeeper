@@ -113,12 +113,25 @@ token = auth.make_token("demo-user", scopes=["db:read", "kb:read"])
 | | 手写版 `mcp_server/t2sql_core.py` | LangGraph 版 `mcp_server/t2sql_graph.py` |
 |---|---|---|
 | 控制流 | 一个 `for` 循环 + `if` / `continue` / `return` | 4 个节点 + 2 个路由函数 + 1 条回边 |
-| 谁在用 | MCP 的 `ask_database`、HTTP 入口、评测脚本 | 测试（与手写版跑同一批断言） |
+| 谁在用 | MCP 的 `ask_database`、HTTP 入口、评测脚本（默认） | 测试（与手写版跑同一批断言）；评测脚本的 `--impl graph` |
 | 依赖 | 无框架 | `langgraph==1.2.16` |
 
 两版共用提示词、取 SQL、失败批注、预算常量（最多 3 次模型调用）、护栏执行和返回体，
 **只有控制流不同**。`tests/test_t2sql_state_machine.py` 里所有调用 `run()` 的用例对两版各跑一遍；
 另有一组对照用例，要求同一剧本下两版发给模型的每一轮消息、返回体逐字相同。
+
+接上真模型的对照（2026-10-23，`deepseek-chat`，提示词 v3，同一天两版各跑一遍 36 题）：
+
+```powershell
+python experiments/09_text2sql_eval.py --versions v3 --impl hand --tag 20261023
+python experiments/09_text2sql_eval.py --versions v3 --impl graph --tag 20261023
+python experiments/33_impl_compare.py --tag 20261023
+```
+
+两版都是可答题 31/32、不可答题拒答 4/4、每题平均 1.00 次调用，**逐题判定翻转 0 道**；
+有 3 道题两版写出的 SQL 文本不同但都判对，那是模型输出自己的抖动。明细见
+[reports/impl_compare.20261023.md](reports/impl_compare.20261023.md)。
+这组数和 [RESULTS.md](RESULTS.md) 第二节 2026-09-18 那一轮**不是同一个模型、同一个端点**，不能拿来直接比。
 
 下图由 `GRAPH.get_graph().draw_mermaid()` 直接导出：实线是固定的边，虚线是路由函数决定的条件边。
 测试会核对这张图和代码现画出来的是否一致。
@@ -205,6 +218,7 @@ experiments/    可重跑的入口脚本（全部幂等）
   29_concurrency_bench.py          三种跑法的实测并发度对照
   30_http_smoke.py                 HTTP 入口冒烟（真进程、真端口）
   31_ledger_under_concurrency.py   并发下的账本对账（需要模型凭据）
+  33_impl_compare.py               手写版 vs LangGraph 版的真模型逐题对照（不调模型，读 09 的产物）
 tests/          单元测试：零网络、零模型调用
 tools/check.py  守门链
 data/           公开数据（示例库 .sql + 公版文本 + 出处清单）
