@@ -117,8 +117,8 @@ token = auth.make_token("demo-user", scopes=["db:read", "kb:read"])
 | 依赖 | 无框架 | `langgraph==1.2.16` |
 
 两版共用提示词、取 SQL、失败批注、预算常量（最多 3 次模型调用）、护栏执行和返回体，
-**只有控制流不同**。`tests/test_t2sql_state_machine.py` 里所有调用 `run()` 的用例对两版各跑一遍；
-另有一组对照用例，要求同一剧本下两版发给模型的每一轮消息、返回体逐字相同。
+**只有控制流不同**。`tests/test_t2sql_state_machine.py` 里调用 `run()` 的 16 条控制流用例对两版各跑一遍
+（共 32 项）；另有 8 组剧本的对照用例，要求两版每一轮发给模型的消息逐条相同、返回结果全部字段一致。
 
 接上真模型的对照（2026-10-23，`deepseek-chat`，提示词 v3，同一天两版各跑一遍 36 题）：
 
@@ -132,6 +132,12 @@ python experiments/33_impl_compare.py --tag 20261023
 有 3 道题两版写出的 SQL 文本不同但都判对，那是模型输出自己的抖动。明细见
 [reports/impl_compare.20261023.md](reports/impl_compare.20261023.md)。
 这组数和 [RESULTS.md](RESULTS.md) 第二节 2026-09-18 那一轮**不是同一个模型、同一个端点**，不能拿来直接比。
+
+同一天还用同一个模型重跑了手写版的 v1、v2（`python experiments/09_text2sql_eval.py --versions v1,v2 --impl hand --tag 20261023`），
+三版提示词放在一起看：可答题 v1 30/32、v2 30/32、v3 31/32，不可答题拒答 0/4、0/4、4/4。
+v3 主动拒答，可答题未见代价 —— 它和 v1、v2 只差 q26 一题，未超出噪声带。9 月那一轮里 v3 在可答题上
+比 v2 少对 3 题，这个代价在 10 月的模型上没有再出现；两轮的完整数字与说明见 RESULTS.md 第二节，
+三版逐题报告见 [reports/text2sql_results.20261023.md](reports/text2sql_results.20261023.md)。
 
 下图由 `GRAPH.get_graph().draw_mermaid()` 直接导出：实线是固定的边，虚线是路由函数决定的条件边。
 测试会核对这张图和代码现画出来的是否一致。

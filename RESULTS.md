@@ -129,7 +129,37 @@ DeepSeek 开放平台的 `deepseek-chat` 同日重跑了三版，结果在表后
 > （每次开跑前那 1 次连通性检查不进账本）。总数因此从「298 次 / 输入 191196 / 输出 5749」
 > 涨到「376 次 / 输入 258970 / 输出 7149」。同一天晚些时候又用同一个模型重跑了手写版 v1、v2
 > （账本里 `t2sql:v1` 37 行、`t2sql:v2` 37 行），总数涨到上面的读数。
-> 这两批的数字与口径见下一小节，它们和标「9 月」的各行**不是同一个模型、同一个端点**，不能直接比。
+> 这两批的数字与口径见本节末尾「2026-10-23 同日同模型重跑三版」那一小节，它们和标「9 月」的各行**不是同一个模型、同一个端点**，不能直接比。
+
+**p 值为什么不在这里再抄一遍**：`v1↔v3` 那一对的精确 p 值与
+`selfcheck.VERIFIED_COINCIDENCES` 里登记的一个「巧合数字」逐字相同，
+而本仓只允许那个字面量出现在 `reports/pair_test.md` / `reports/pair_test.json` 里
+（登记项由 `tests/test_repo_hygiene.py` 钉着，路径不在表里就不放行）。
+数字的唯一住所是那份报告；这里只报不一致对数与「是否超出噪声带」。
+
+### 9 月那一轮最该看的一条：v3 不是「更好的版本」（2026-09-18，`deepseek-ai/DeepSeek-V3`）
+
+下面这一节写于 9 月，**原文保留**；它在 10 月换模型重跑之后的更新写在本节末尾。
+
+把它单列，是因为它与「提示词越改越好」的直觉相反，而且这是**实测**的：
+
+- **可答题上 v3 更低**：严格 EX 27/32，低于 v1 的 29/32、v2 的 30/32。
+  与 v1 差 2 题、与 v2 差 3 题，两对**都超出**实测噪声带（1 题）。
+- **不可答题上 v3 全对**：v1 与 v2 都是 0/4，v3 是 4/4。
+- **代价是怎么付的**：v3 丢掉的 3 道题（q16、q22、q25）在 v3 的记录里
+  `status` 都是 `ok`、`attempts` 都是 1 —— 也就是说它**不是拒答，是答了但答错**。
+  所以这不是「模型变保守了」，而是换提示词之后生成了不同的 SQL：
+  v3 买到了不可答题的 4/4，代价是可答题上的 2~3 题。
+- **结论到此为止**：可答题只有 32 道、不一致对数是 1~3，
+  这批题分辨不出更细的差别。方向照实报，不往更大的说法上写。
+- **10 月同模型重跑后的更新（2026-10-23，`deepseek-chat`）**：上面「可答题上 v3 更低」的代价**没有再出现** —— 三版可答题 v1 30/32、v2 30/32、v3 31/32，v3 与 v1、v2 都只差 q26 一题（v3 独对），未超出噪声带；拒答仍是 v1 0/4、v2 0/4、v3 4/4。所以「v3 拿可答题换拒答」是 9 月那个模型上的实测，不能推广到别的模型；按 10 月的数据，只能写「v3 主动拒答，可答题未见代价」。明细见下面「2026-10-23 同日同模型重跑三版」那一小节。
+
+汇总口径与逐对措辞：[reports/pair_test.md](reports/pair_test.md)；
+逐题记录：[reports/text2sql_results.v1.json](reports/text2sql_results.v1.json)、
+[.v2.json](reports/text2sql_results.v2.json)、[.v3.json](reports/text2sql_results.v3.json)；
+噪声带：[reports/noise_band.json](reports/noise_band.json)；
+口语对照：[reports/colloquial_vs_formal.md](reports/colloquial_vs_formal.md)；
+成本：[reports/cost_report.md](reports/cost_report.md)。
 
 ### 2026-10-23 同日同模型重跑三版（`deepseek-chat`，DeepSeek 开放平台）
 
@@ -156,33 +186,6 @@ DeepSeek 开放平台的 `deepseek-chat` 同日重跑了三版，结果在表后
   3. v3 从 9 月 27/32 到 10 月 31/32，是**换了模型之后**的结果，不能读成提示词或实现变好了。
      同样 36 道题、同样的提示词文本，v3 的输入 token 9 月是 31224、10 月是 31296 ——
      连分词结果都不同，两次面对的不是同一个模型服务。
-
-**p 值为什么不在这里再抄一遍**：`v1↔v3` 那一对的精确 p 值与
-`selfcheck.VERIFIED_COINCIDENCES` 里登记的一个「巧合数字」逐字相同，
-而本仓只允许那个字面量出现在 `reports/pair_test.md` / `reports/pair_test.json` 里
-（登记项由 `tests/test_repo_hygiene.py` 钉着，路径不在表里就不放行）。
-数字的唯一住所是那份报告；这里只报不一致对数与「是否超出噪声带」。
-
-### 这一节里最该看的一条：v3 不是「更好的版本」
-
-把它单列，是因为它与「提示词越改越好」的直觉相反，而且这是**实测**的：
-
-- **可答题上 v3 更低**：严格 EX 27/32，低于 v1 的 29/32、v2 的 30/32。
-  与 v1 差 2 题、与 v2 差 3 题，两对**都超出**实测噪声带（1 题）。
-- **不可答题上 v3 全对**：v1 与 v2 都是 0/4，v3 是 4/4。
-- **代价是怎么付的**：v3 丢掉的 3 道题（q16、q22、q25）在 v3 的记录里
-  `status` 都是 `ok`、`attempts` 都是 1 —— 也就是说它**不是拒答，是答了但答错**。
-  所以这不是「模型变保守了」，而是换提示词之后生成了不同的 SQL：
-  v3 买到了不可答题的 4/4，代价是可答题上的 2~3 题。
-- **结论到此为止**：可答题只有 32 道、不一致对数是 1~3，
-  这批题分辨不出更细的差别。方向照实报，不往更大的说法上写。
-
-汇总口径与逐对措辞：[reports/pair_test.md](reports/pair_test.md)；
-逐题记录：[reports/text2sql_results.v1.json](reports/text2sql_results.v1.json)、
-[.v2.json](reports/text2sql_results.v2.json)、[.v3.json](reports/text2sql_results.v3.json)；
-噪声带：[reports/noise_band.json](reports/noise_band.json)；
-口语对照：[reports/colloquial_vs_formal.md](reports/colloquial_vs_formal.md)；
-成本：[reports/cost_report.md](reports/cost_report.md)。
 
 **为什么这些数字别人不能直接照抄**：它们来自本机的 `reports/usage_ledger.jsonl`
 （按设计不进仓库 —— 它是本机的用量流水）。换一台机器、换一个模型版本，
