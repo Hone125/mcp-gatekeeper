@@ -16,9 +16,11 @@
 | 来源标签 | 模型 | 调用次数 | 输入 token | 输出 token | 金额 | 单价口径 |
 |---|---|---|---|---|---|---|
 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 226 | 133824 | 3891 | — | 无单价条目 |
+| t2sql:v3 | deepseek-chat | 39 | 33887 | 697 | — | 无单价条目 |
+| t2sql_graph:v3 | deepseek-chat | 39 | 33887 | 703 | — | 无单价条目 |
 | t2sql:v1 | deepseek-ai/DeepSeek-V3 | 36 | 28344 | 947 | — | 无单价条目 |
 | t2sql:v2 | deepseek-ai/DeepSeek-V3 | 36 | 29028 | 911 | — | 无单价条目 |
-| **合计** | — | **298** | **191196** | **5749** | — | — |
+| **合计** | — | **376** | **258970** | **7149** | — | — |
 
 > 金额全部留空：没有可引用的单价。**这不等于免费** —— 要算金额，把 `MCP_TOOLKIT_PRICES` 指向一个带 `source` / `as_of` 的单价 JSON。
 
@@ -26,7 +28,8 @@
 
 | 来源标签 | 调用次数 |
 |---|---|
-| t2sql:v3 | 226 |
+| t2sql:v3 | 265 |
+| t2sql_graph:v3 | 39 |
 | t2sql:v1 | 36 |
 | t2sql:v2 | 36 |
 
@@ -332,3 +335,81 @@
 | 2026-09-22T12:00:59 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 251 | 21 |
 | 2026-09-22T12:01:01 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 17 |
 | 2026-09-22T12:01:02 | t2sql:v3 | deepseek-ai/DeepSeek-V3 | 253 | 12 |
+| 2026-10-23T20:07:30 | t2sql:v3 | deepseek-chat | 864 | 6 |
+| 2026-10-23T20:07:32 | t2sql:v3 | deepseek-chat | 863 | 9 |
+| 2026-10-23T20:07:33 | t2sql:v3 | deepseek-chat | 864 | 9 |
+| 2026-10-23T20:07:42 | t2sql_graph:v3 | deepseek-chat | 864 | 6 |
+| 2026-10-23T20:07:43 | t2sql_graph:v3 | deepseek-chat | 863 | 9 |
+| 2026-10-23T20:07:45 | t2sql_graph:v3 | deepseek-chat | 864 | 9 |
+| 2026-10-23T20:08:07 | t2sql:v3 | deepseek-chat | 864 | 9 |
+| 2026-10-23T20:08:08 | t2sql:v3 | deepseek-chat | 863 | 9 |
+| 2026-10-23T20:08:10 | t2sql:v3 | deepseek-chat | 864 | 9 |
+| 2026-10-23T20:08:11 | t2sql:v3 | deepseek-chat | 863 | 9 |
+| 2026-10-23T20:08:13 | t2sql:v3 | deepseek-chat | 862 | 9 |
+| 2026-10-23T20:08:15 | t2sql:v3 | deepseek-chat | 863 | 5 |
+| 2026-10-23T20:08:16 | t2sql:v3 | deepseek-chat | 868 | 9 |
+| 2026-10-23T20:08:18 | t2sql:v3 | deepseek-chat | 865 | 13 |
+| 2026-10-23T20:08:19 | t2sql:v3 | deepseek-chat | 874 | 16 |
+| 2026-10-23T20:08:21 | t2sql:v3 | deepseek-chat | 865 | 14 |
+| 2026-10-23T20:08:23 | t2sql:v3 | deepseek-chat | 865 | 11 |
+| 2026-10-23T20:08:25 | t2sql:v3 | deepseek-chat | 872 | 18 |
+| 2026-10-23T20:08:27 | t2sql:v3 | deepseek-chat | 876 | 20 |
+| 2026-10-23T20:08:29 | t2sql:v3 | deepseek-chat | 866 | 10 |
+| 2026-10-23T20:08:30 | t2sql:v3 | deepseek-chat | 871 | 12 |
+| 2026-10-23T20:08:32 | t2sql:v3 | deepseek-chat | 870 | 15 |
+| 2026-10-23T20:08:34 | t2sql:v3 | deepseek-chat | 878 | 39 |
+| 2026-10-23T20:08:36 | t2sql:v3 | deepseek-chat | 879 | 15 |
+| 2026-10-23T20:08:38 | t2sql:v3 | deepseek-chat | 874 | 12 |
+| 2026-10-23T20:08:39 | t2sql:v3 | deepseek-chat | 870 | 30 |
+| 2026-10-23T20:08:41 | t2sql:v3 | deepseek-chat | 870 | 35 |
+| 2026-10-23T20:08:43 | t2sql:v3 | deepseek-chat | 876 | 32 |
+| 2026-10-23T20:08:44 | t2sql:v3 | deepseek-chat | 873 | 33 |
+| 2026-10-23T20:08:46 | t2sql:v3 | deepseek-chat | 871 | 14 |
+| 2026-10-23T20:08:48 | t2sql:v3 | deepseek-chat | 875 | 27 |
+| 2026-10-23T20:08:50 | t2sql:v3 | deepseek-chat | 873 | 23 |
+| 2026-10-23T20:08:52 | t2sql:v3 | deepseek-chat | 870 | 18 |
+| 2026-10-23T20:08:53 | t2sql:v3 | deepseek-chat | 873 | 24 |
+| 2026-10-23T20:08:55 | t2sql:v3 | deepseek-chat | 871 | 20 |
+| 2026-10-23T20:08:57 | t2sql:v3 | deepseek-chat | 868 | 11 |
+| 2026-10-23T20:08:59 | t2sql:v3 | deepseek-chat | 871 | 24 |
+| 2026-10-23T20:09:00 | t2sql:v3 | deepseek-chat | 871 | 23 |
+| 2026-10-23T20:09:02 | t2sql:v3 | deepseek-chat | 867 | 32 |
+| 2026-10-23T20:09:04 | t2sql:v3 | deepseek-chat | 864 | 22 |
+| 2026-10-23T20:09:06 | t2sql:v3 | deepseek-chat | 867 | 28 |
+| 2026-10-23T20:09:08 | t2sql:v3 | deepseek-chat | 864 | 23 |
+| 2026-10-23T20:09:17 | t2sql_graph:v3 | deepseek-chat | 864 | 9 |
+| 2026-10-23T20:09:18 | t2sql_graph:v3 | deepseek-chat | 863 | 9 |
+| 2026-10-23T20:09:20 | t2sql_graph:v3 | deepseek-chat | 864 | 9 |
+| 2026-10-23T20:09:22 | t2sql_graph:v3 | deepseek-chat | 863 | 9 |
+| 2026-10-23T20:09:23 | t2sql_graph:v3 | deepseek-chat | 862 | 6 |
+| 2026-10-23T20:09:25 | t2sql_graph:v3 | deepseek-chat | 863 | 4 |
+| 2026-10-23T20:09:27 | t2sql_graph:v3 | deepseek-chat | 868 | 9 |
+| 2026-10-23T20:09:28 | t2sql_graph:v3 | deepseek-chat | 865 | 13 |
+| 2026-10-23T20:09:30 | t2sql_graph:v3 | deepseek-chat | 874 | 16 |
+| 2026-10-23T20:09:32 | t2sql_graph:v3 | deepseek-chat | 865 | 14 |
+| 2026-10-23T20:09:34 | t2sql_graph:v3 | deepseek-chat | 865 | 11 |
+| 2026-10-23T20:09:35 | t2sql_graph:v3 | deepseek-chat | 872 | 18 |
+| 2026-10-23T20:09:37 | t2sql_graph:v3 | deepseek-chat | 876 | 20 |
+| 2026-10-23T20:09:39 | t2sql_graph:v3 | deepseek-chat | 866 | 10 |
+| 2026-10-23T20:09:40 | t2sql_graph:v3 | deepseek-chat | 871 | 12 |
+| 2026-10-23T20:09:42 | t2sql_graph:v3 | deepseek-chat | 870 | 15 |
+| 2026-10-23T20:09:44 | t2sql_graph:v3 | deepseek-chat | 878 | 36 |
+| 2026-10-23T20:09:45 | t2sql_graph:v3 | deepseek-chat | 879 | 14 |
+| 2026-10-23T20:09:47 | t2sql_graph:v3 | deepseek-chat | 874 | 12 |
+| 2026-10-23T20:09:49 | t2sql_graph:v3 | deepseek-chat | 870 | 30 |
+| 2026-10-23T20:09:50 | t2sql_graph:v3 | deepseek-chat | 870 | 33 |
+| 2026-10-23T20:09:52 | t2sql_graph:v3 | deepseek-chat | 876 | 32 |
+| 2026-10-23T20:09:54 | t2sql_graph:v3 | deepseek-chat | 873 | 33 |
+| 2026-10-23T20:09:55 | t2sql_graph:v3 | deepseek-chat | 871 | 14 |
+| 2026-10-23T20:09:58 | t2sql_graph:v3 | deepseek-chat | 875 | 27 |
+| 2026-10-23T20:10:00 | t2sql_graph:v3 | deepseek-chat | 873 | 23 |
+| 2026-10-23T20:10:02 | t2sql_graph:v3 | deepseek-chat | 870 | 18 |
+| 2026-10-23T20:10:04 | t2sql_graph:v3 | deepseek-chat | 873 | 24 |
+| 2026-10-23T20:10:06 | t2sql_graph:v3 | deepseek-chat | 871 | 20 |
+| 2026-10-23T20:10:08 | t2sql_graph:v3 | deepseek-chat | 868 | 11 |
+| 2026-10-23T20:10:09 | t2sql_graph:v3 | deepseek-chat | 871 | 24 |
+| 2026-10-23T20:10:11 | t2sql_graph:v3 | deepseek-chat | 871 | 23 |
+| 2026-10-23T20:10:13 | t2sql_graph:v3 | deepseek-chat | 867 | 32 |
+| 2026-10-23T20:10:14 | t2sql_graph:v3 | deepseek-chat | 864 | 27 |
+| 2026-10-23T20:10:16 | t2sql_graph:v3 | deepseek-chat | 867 | 22 |
+| 2026-10-23T20:10:18 | t2sql_graph:v3 | deepseek-chat | 864 | 40 |
