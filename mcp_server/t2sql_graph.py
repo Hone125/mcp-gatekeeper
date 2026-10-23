@@ -71,6 +71,25 @@ State 再挂 `InMemorySaver`，报 `TypeError: Type is not msgpack serializable:
 - **「没给出 SQL」那句格式提醒是照抄的**（见 `EMPTY_NUDGE`）：手写版把它直接写在 `run()` 里面，
   没有提成常量，而这一轮的规矩是不改手写版。改任何一边都要同步另一边 —— 忘了同步时，
   上面说的两版对照用例会红（只查子串的那些用例不会）。
+
+## 多轮追问：`ask()` + checkpointer + thread_id
+
+`run()` 不挂 checkpointer，每次都是一张白纸。`ask()` 用的是 `build_graph(checkpointer)` 编出来的图：
+同一个 `thread_id` 的几问共享一份存档，于是第二问「那只看前 5 个」能看到第一问问了什么、最后用的哪条 SQL。
+
+**★ 坑：带 reducer 的字段在同一个 thread 里会跨问题一直累加。** 存档里的 State 是接着用的，
+`history` 的合并规则是「旧 + 新」，第二问开始时调用方传 `history: []` 也没用 —— 那只是「旧 + 空」。
+实测：同一个 thread 里先问一题（1 次尝试）再问一题，不做处理时第二问的返回体 `attempts` 是 2，
+`history` 里混着第一问的现场。所以字段要按寿命分两类：
+
+| 寿命 | 字段 | 怎么处理 |
+|---|---|---|
+| 每问独立 | `history`、`attempt`、`usage`、`messages`、`reply`、`extracted`、`query_result` | 每问开头重置：`history` 用 `Overwrite([])` 绕过 reducer 直接清空；覆盖式字段由输入或 `prepare` 整个换掉 |
+| 跨轮保留 | `turns`：之前每一问的问题、最终 SQL、结局 | 带 `operator.add`，**就是要它累加**；一问结束后由 `ask()` 用 `update_state` 追加一条 |
+
+`prepare` 把最近 `MAX_TURNS_IN_PROMPT` 问按「问 → 最终 SQL」插在系统规则和这一问之间 ——
+`turns` 本身随会话一直长，但塞进提示词的只有一个固定窗口，提示词不会越问越长。
+`run()` 的 `turns` 永远是空的，发给模型的消息与加这一节之前逐字相同（两版对照用例守着）。
 """
 from __future__ import annotations
 
@@ -82,6 +101,7 @@ from typing import Annotated, Literal, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 from langgraph.runtime import Runtime
+from langgraph.types import Overwrite
 
 from mcp_server import cost, db_tools, guardrails
 from mcp_server.t2sql_core import (DEFAULT_VERSION, MAX_ATTEMPTS, _result, build_messages,
@@ -100,6 +120,9 @@ STEPS_AT_FULL_BUDGET = 3 * MAX_ATTEMPTS
 # ★ 必须显式设：这个版本的默认上限是 10007 步（`langgraph/_internal/_config.py`），
 # 死循环时要转上万步才停，而每三步就是一次真实的模型调用。
 RECURSION_LIMIT = STEPS_AT_FULL_BUDGET + 3
+
+# 多轮追问时，最多把最近几问塞进提示词（见文件头「多轮追问」）。
+MAX_TURNS_IN_PROMPT = 5
 
 # 原 `t2sql_core.run()` 第 264–265 行的那句格式提醒，逐字照抄（理由见文件头「差别」第 3 条）。
 EMPTY_NUDGE = ("你的回复里没有可执行的 SQL。请只输出一条 SELECT 或 WITH 语句，"
@@ -125,7 +148,11 @@ class T2SQLState(TypedDict):
     usage: dict             # 累计用量。generate 算好新的总数整个交上来
     # 逐次现场：追加式。节点交的是「只含这一次那一条的列表」，旧列表 + 新列表由 operator.add 完成。
     # 交 dict 而不是 list 会当场报 TypeError（list 只能和 list 相加）。
+    # ★ 它的寿命是「一问」：多轮时每问开头由 ask() 用 Overwrite([]) 清空（见文件头「多轮追问」）。
     history: Annotated[list[dict], operator.add]
+    # 跨轮记忆：之前每一问的 {question, sql, status}。寿命是「整个会话」，就是要它累加。
+    # 只有 ask() 会写它；run() 里它永远是空列表。
+    turns: Annotated[list[dict], operator.add]
 
 
 @dataclass(frozen=True)
@@ -143,9 +170,21 @@ def prepare(state: T2SQLState, runtime: Runtime[T2SQLContext]) -> dict:
 
     未知的提示词版本在这里由 `build_messages` 抛 ValueError —— 和手写版一样，
     发生在第一次调模型之前，而且是一个响亮的错误，不是一次 failed。
+
+    多轮时（`turns` 非空），把最近几问按「问 → 最终 SQL」插在系统规则和这一问之间。
+    结构说明仍然只在这一问的 user 消息里出现一次：之前几问只带问题和 SQL，不重复带结构。
     """
     schema = db_tools.schema_doc(runtime.context.db_path)
-    return {"messages": build_messages(state["question"], schema, state["version"])}
+    first = build_messages(state["question"], schema, state["version"])
+    turns = state.get("turns") or []
+    if not turns:
+        return {"messages": first}
+    earlier: list[dict] = []
+    for t in turns[-MAX_TURNS_IN_PROMPT:]:
+        earlier += [{"role": "user", "content": f"（之前的问题）{t['question']}"},
+                    {"role": "assistant",
+                     "content": t["sql"] or f"-- 这一问没有得到可执行的 SQL（{t['status']}）"}]
+    return {"messages": [first[0], *earlier, first[1]]}
 
 
 def generate(state: T2SQLState, runtime: Runtime[T2SQLContext]) -> dict:
@@ -248,7 +287,8 @@ def route_after_execute(state: T2SQLState) -> Literal["repair", "__end__"]:
 
 
 # ---------------------------------------------------------------- 组图
-def build_graph():
+def build_graph(checkpointer=None):
+    """组图并编译。`checkpointer` 只有多轮追问（`ask()`）才需要；`run()` 用的 `GRAPH` 不挂。"""
     g = StateGraph(T2SQLState, context_schema=T2SQLContext)
     g.add_node("prepare", prepare)
     g.add_node("generate", generate)
@@ -259,7 +299,7 @@ def build_graph():
     g.add_conditional_edges("generate", route_after_generate)
     g.add_conditional_edges("execute", route_after_execute)
     g.add_edge("repair", "generate")   # 这条回边就是原来的 for 循环
-    return g.compile()
+    return g.compile(checkpointer=checkpointer)
 
 
 GRAPH = build_graph()
@@ -276,6 +316,30 @@ def run(question: str, version: str = DEFAULT_VERSION, db_path: Path | None = No
         config={"recursion_limit": RECURSION_LIMIT},
     )
     return _to_result(final)
+
+
+def ask(graph, thread_id: str, question: str, version: str = DEFAULT_VERSION,
+        db_path: Path | None = None, llm=None, record_cost: bool = True) -> dict:
+    """同一会话里的一问。返回体与 `run()` 相同。
+
+    `graph` 必须是 `build_graph(checkpointer)` 编出来的（挂着 checkpointer）；
+    `thread_id` 相同的几问共享 `turns`，其余字段每问从头开始（见文件头「多轮追问」的那张表）。
+    """
+    config = {"configurable": {"thread_id": thread_id}, "recursion_limit": RECURSION_LIMIT}
+    final = graph.invoke(
+        {"question": question, "version": version, "attempt": 0,
+         "usage": {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0},
+         # ★ 绕过 operator.add、直接清空：传 [] 只会得到「旧 + 空」，上一问的现场照样留着
+         "history": Overwrite([])},
+        context=T2SQLContext(llm=llm or real_llm, db_path=db_path, record_cost=record_cost),
+        config=config,
+    )
+    result = _to_result(final)
+    # 这一问结束了，把它记进跨轮记忆。走 update_state 而不是在图里加节点：
+    # 单轮的 run() 用的是同一张图，加节点会改掉它的形状和步数。
+    graph.update_state(config, {"turns": [{"question": question, "sql": result["sql"],
+                                           "status": result["status"]}]})
+    return result
 
 
 def _to_result(state: T2SQLState) -> dict:

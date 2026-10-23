@@ -26,9 +26,9 @@
 | G3 | NOTICE 覆盖逐篇出处 | PASS | 40 篇出处全部列明 |
 | G4 | 文档里的命令都成立 | PASS | 89 条命令，脚本与参数全部对得上 |
 | G5 | README 工具表与 TOOL_SCOPES 一致 | PASS | 6 个工具，名字与 scope 全部一致 |
-| G6 | README 提到的仓库内路径都存在 | PASS | 35 个仓库内路径，全部存在 |
+| G6 | README 提到的仓库内路径都存在 | PASS | 36 个仓库内路径，全部存在 |
 | G7 | 文档引用的报告都存在（或当场说明未生成） | PASS | 33 处引用：29 处文件存在、4 处当场说明未生成 |
-| G8 | requirements.txt 覆盖代码里的第三方 import | PASS | 9 个第三方包全部已声明；未被 import 的声明：httpx、pytest |
+| G8 | requirements.txt 覆盖代码里的第三方 import | PASS | 9 个第三方包全部已声明；未被 import 的声明：httpx、langgraph-checkpoint、pytest |
 
 ## 命中的行（若有）
 

@@ -177,7 +177,7 @@ LangGraph 带来的能力，以及本仓库**实际用上了哪些**：
 
 | 能力 | 是什么 | 本仓库 |
 |---|---|---|
-| 持久化（checkpointer） | 每走一步把 State 存档；同一个会话（`thread_id`）下次接着用 | 未接。为它留了路：模型、库路径这类运行参数放在 context 里，State 里只有能序列化的数据 |
+| 持久化（checkpointer） | 每走一步把 State 存档；同一个会话（`thread_id`）下次接着用 | 接了，只用于多轮追问 `t2sql_graph.ask()`，测试里挂 `InMemorySaver`：同一个 `thread_id` 的第二问会带上之前的问题和最终 SQL。每问独立的字段（`history` 等）每问开头清空，跨轮只保留 `turns`（理由见 `mcp_server/t2sql_graph.py` 文件头）。没有接持久化到磁盘的存档 |
 | 中断恢复（interrupt） | 在某个节点前后停下，等人确认或修改 State 再继续 | 未用 |
 | 可视化 | 从代码直接导出流程图 | 用了：上面那张图 |
 | 流式输出（stream） | 每个节点跑完就产出一次更新，不必等整张图跑完 | 未对外提供 |

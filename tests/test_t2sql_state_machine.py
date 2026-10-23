@@ -341,6 +341,77 @@ def test_both_implementations_send_and_return_exactly_the_same(tiny_db, replies)
     assert out_b == out_a, "两版的返回体不一样"
 
 
+# ---------------------------------------------------------------- 多轮追问（LangGraph 版独有）
+def _session(tiny_db):
+    """一个挂着 InMemorySaver 的会话。返回 `ask(thread, 问题, 剧本) -> (假模型, 返回体)`。"""
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    g = graph.build_graph(InMemorySaver())
+
+    def ask(thread, question, replies):
+        fake = FakeLLM(replies)
+        out = graph.ask(g, thread, question, db_path=tiny_db, llm=fake, record_cost=False)
+        return fake, out
+    return ask
+
+
+def test_a_follow_up_carries_the_previous_question_and_its_final_sql(tiny_db):
+    """★ 第二问发给模型的消息里，要带着第一问问了什么、最后用的哪条 SQL。
+
+    插的位置也钉住：系统规则 → 之前的「问 → SQL」→ 这一问。这一问仍是最后一条，
+    结构说明仍只在这一问里出现一次。
+    """
+    ask = _session(tiny_db)
+    _, first = ask("s1", "每个艺术家有几张专辑",
+                   ["SELECT artist_id, COUNT(*) AS n FROM album GROUP BY artist_id"])
+    fake, second = ask("s1", "那只看前 1 个",
+                       ["SELECT artist_id, COUNT(*) AS n FROM album GROUP BY artist_id "
+                        "ORDER BY n DESC LIMIT 1"])
+    msgs = fake.seen[0]
+    assert [m["role"] for m in msgs] == ["system", "user", "assistant", "user"]
+    assert "每个艺术家有几张专辑" in msgs[1]["content"]
+    assert msgs[2]["content"] == first["sql"], "要带上一问**最终执行**的那条 SQL"
+    assert "那只看前 1 个" in msgs[3]["content"] and "数据库结构" in msgs[3]["content"]
+    assert sum("数据库结构" in m["content"] for m in msgs) == 1, "结构说明不该每一问都重复带"
+    assert second["ok"] is True and second["rows"] == [[1, 2]]
+
+
+def test_per_question_fields_start_fresh_in_the_same_thread(tiny_db):
+    """★ 坑：`history` 带 operator.add，同一个 thread 里会跨问题累加 —— 每问必须从空现场开始。
+
+    后半段是负控：绕开 `ask()`、不清空 history 直接 invoke 第二问，第二问的现场里**确实**
+    混进了第一问的。没有这一半，前半段的断言可能只是恒真。
+    """
+    ask = _session(tiny_db)
+    _, first = ask("s1", "q1", ["DROP TABLE artist", "SELECT name FROM artist"])
+    _, second = ask("s1", "q2", ["SELECT title FROM album"])
+    assert first["attempts"] == 2
+    assert second["attempts"] == 1 and len(second["history"]) == 1
+    assert second["usage"]["calls"] == 1, "用量也是每问独立的"
+    assert second["history"][0]["sql"] == "SELECT title FROM album"
+
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    g = graph.build_graph(InMemorySaver())
+    cfg = {"configurable": {"thread_id": "t"}}
+    ctx = graph.T2SQLContext(llm=FakeLLM(["SELECT name FROM artist"]), db_path=tiny_db,
+                             record_cost=False)
+    base = {"version": "v3", "attempt": 0,
+            "usage": {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0}}
+    g.invoke({**base, "question": "q1"}, context=ctx, config=cfg)
+    leaked = g.invoke({**base, "question": "q2", "history": []}, context=ctx, config=cfg)
+    assert len(leaked["history"]) == 2, "不清空时 history 本该累加 —— 负控没起作用"
+
+
+def test_threads_do_not_share_memory(tiny_db):
+    """不同的 thread_id 是不同的会话：另一个会话问过什么，这里一个字都不该看到。"""
+    ask = _session(tiny_db)
+    ask("alice", "每个艺术家有几张专辑",
+        ["SELECT artist_id, COUNT(*) AS n FROM album GROUP BY artist_id"])
+    fake, _ = ask("bob", "那只看前 1 个", ["SELECT 1"])
+    assert [m["role"] for m in fake.seen[0]] == ["system", "user"], "另一个会话的上下文漏进来了"
+
+
 def test_the_readme_diagram_is_the_one_the_code_draws(root):
     """README 里那张流程图必须就是代码现画出来的那张。手抄一张图，迟早和代码对不上。"""
     text = (root / "README.md").read_text(encoding="utf-8")
