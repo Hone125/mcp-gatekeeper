@@ -37,11 +37,23 @@
 需要 `LLM_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`（照 `.env.example` 填）。
 不填的话**不会编任何数字**：写一份 `reports/text2sql_NOT_RUN.md` 说明卡在哪一步，
 以退出码 5 结束，并且**不创建** `text2sql_results.*` —— 免得有人把空报告当成结果读。
+
+## `--impl` 与 `--tag`：测的是哪一套实现、产物写到哪
+
+- `--impl hand`（默认）测手写版 `t2sql_core.run()`；`--impl graph` 测 LangGraph 版
+  `t2sql_graph.run()`。LangGraph 版**用到时才 import**：只跑手写版的人不需要装 langgraph。
+- 产物文件名按两者加后缀：`--impl graph` 加 `.graph`，`--tag T` 再加 `.T`，
+  例如 `text2sql_results.v3.graph.T.json` 与 `text2sql_results.graph.T.md`。
+  **两个参数都不带时后缀为空**：跑法、文件名、报告内容都与加这两个参数之前逐字相同。
+- ★ `--tag` 存在的理由：重跑会**覆盖**同名产物。2026-09-18 那一轮的 v1 / v2 / v3 是已提交的实测记录；
+  换了模型再跑一遍手写版 v3，不打标签就会把旧模型的 v3 换成新模型的，而同一份报告里的
+  v1 / v2 还是旧模型的 —— 两个模型的数字混进同一张表，读的人分不出来。
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import sys
 from pathlib import Path
@@ -67,6 +79,23 @@ MAX_REF_ROWS = runner.MAX_REF_ROWS
 load_questions = runner.load_questions
 grade_one = runner.grade_one
 run_version = runner.run_version
+
+# 被测实现（见文件头「--impl 与 --tag」）。
+IMPLS = {"hand": "手写版 `t2sql_core.run()`", "graph": "LangGraph 版 `t2sql_graph.run()`"}
+_RE_TAG = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
+
+
+def run_fn_for(impl: str):
+    """按 `--impl` 取状态机实现。LangGraph 版用到时才 import（理由见文件头）。"""
+    if impl == "graph":
+        from mcp_server import t2sql_graph
+        return t2sql_graph.run
+    return t2sql_core.run
+
+
+def suffix_for(impl: str, tag: str) -> str:
+    """产物文件名里插在扩展名前的后缀。默认（手写版、不打标签）为空。"""
+    return "".join(f".{p}" for p in ("graph" if impl == "graph" else "", tag) if p)
 
 
 # ---------------------------------------------------------------- 题集核验
@@ -139,8 +168,11 @@ _FAKE_MODES = runner.FAKE_MODES
 make_fake_llm = runner.make_fake_llm
 
 
-def run_selftest(mode: str, db: Path) -> int:
-    """用假模型把整条流水线跑一遍，并把结论断言出来。**不需要 LLM。**"""
+def run_selftest(mode: str, db: Path, impl: str = "hand", tag: str = "") -> int:
+    """用假模型把整条流水线跑一遍，并把结论断言出来。**不需要 LLM。**
+
+    `--impl graph` 时走的是 LangGraph 版 —— 同一套断言，验的是「换了实现，评测流水线照样成立」。
+    """
     data = load_questions()
     qs = data["questions"]
     by_question = {q["question"]: q for q in qs}
@@ -148,13 +180,15 @@ def run_selftest(mode: str, db: Path) -> int:
     llm = make_fake_llm(mode, by_question, calls)
 
     REPORTS.mkdir(parents=True, exist_ok=True)
-    out_json = REPORTS / f"text2sql_selftest.{mode}.json"
+    out_json = REPORTS / f"text2sql_selftest.{mode}{suffix_for(impl, tag)}.json"
     conn = runner.connect(db)
     try:
         print(f"=== 假模型自检：{mode} ===")
+        if impl != "hand":
+            print(f"    实现：{IMPLS[impl]}")
         # ★ record_cost=False：假模型的 token 不许混进真账本，否则成本报告成了假的。
         recs, errors = run_version("v3", qs, conn, db, out_json,
-                                   llm=llm, record_cost=False)
+                                   llm=llm, record_cost=False, run_fn=run_fn_for(impl))
     finally:
         conn.close()
 
@@ -218,12 +252,16 @@ def run_selftest(mode: str, db: Path) -> int:
 
 
 def write_report(all_records: dict[str, list[dict]],
-                 noise_band: int | None) -> list[str]:
+                 noise_band: int | None, impl: str = "hand", tag: str = "") -> list[str]:
     """把三版汇总成一份 markdown。**每个数字都带口径。**
 
     返回报告里命中的禁用词（正常为空）。措辞检查在**真实产物**上做，
     理由见 `mcp_server/eval_runner.py` 的 `write_report()`。
+
+    `impl` / `tag` 不是默认值时，报告写进带后缀的文件，并在口径里多写一行「测的是哪一套」；
+    默认值下一个字都不多，报告与加这两个参数之前逐字相同。
     """
+    sfx = suffix_for(impl, tag)
     lines: list[str] = []
     A = lines.append
     A("# Text2SQL 评测结果")
@@ -231,6 +269,9 @@ def write_report(all_records: dict[str, list[dict]],
     A("## 口径")
     A("")
     A("- **脚本**：`experiments/09_text2sql_eval.py`")
+    if sfx:
+        A(f"- **实现**：{IMPLS[impl]}" + (f"；**标签**：`{tag}`" if tag else "")
+          + f"（产物文件名带后缀 `{sfx}`，不覆盖未打标签的那一轮）")
     A("- **题集**：`data/eval/questions.json`，36 题 = 32 题可答 + 4 题本来就不该答得出来")
     A("- **参考解**：每题一条可执行 SQL，由 `09 --check-questions` 实跑核验"
       "（非空、≤200 行、连跑两次一致）")
@@ -285,12 +326,21 @@ def write_report(all_records: dict[str, list[dict]],
         A(f"实测噪声带 = **{noise_band} 题**（`experiments/21_noise_band.py`："
           f"同一臂同一温度连跑两遍，逐题比 EX，翻转的题数）。")
         A("")
+        # ★ 这一句原来把禁用词逐字列了出来。而报告落盘后要过 `check_wording`（纯子串匹配），
+        #   于是只要 `noise_band.json` 存在，报告就会被**自己这句话**判成措辞越界、退出码 2。
+        #   2026-09-18 那一轮跑在噪声带实测之前，报告里还没有这一节，所以一直没暴露；
+        #   2026-10-23 加 `--impl` 时用 `--render-only` 验默认行为，撞上了。改成指向词表，不再逐字列出。
         A("任何版本之间的差异都要先与它比较；落在噪声带之内的只能写"
-          "「方向为 X，未达可判定水平」，禁用「显著 / 大幅 / 提升 / 极大」。")
+          "「方向为 X，未达可判定水平」，不许用夸大措辞"
+          "（禁用词表见 `mcp_server/eval_grading.py` 的 `BANNED_WORDS`）。")
         A("")
+        if sfx:
+            A("注意：这个噪声带取自 `reports/noise_band.json`，是早先那一轮的实测；"
+              "本次运行打了后缀，模型可能与那一轮不同，它只能作参照。")
+            A("")
     # 报告**先落盘**再查措辞：一份措辞越界的报告也比没有报告有用。
     # 命中时把禁用词返回给调用方，由它决定退出码。
-    return runner.write_report(REPORTS / "text2sql_results.md", "\n".join(lines))
+    return runner.write_report(REPORTS / f"text2sql_results{sfx}.md", "\n".join(lines))
 
 
 def write_not_run(reason: str) -> None:
@@ -343,13 +393,28 @@ def main() -> int:
     ap.add_argument("--render-only", action="store_true",
                     help="不调模型：按已有的 text2sql_results.v*.json 重出一份报告。"
                          "改报告措辞/表格时用，不花调用")
+    ap.add_argument("--impl", choices=tuple(IMPLS), default="hand",
+                    help="被测的状态机实现：hand = 手写版（默认）、graph = LangGraph 版")
+    ap.add_argument("--tag", default="",
+                    help="产物文件名后缀（字母、数字、- 和 _），用来不覆盖已有的那一轮结果")
     args = ap.parse_args()
 
     if args.check_questions:
         return check_questions()
 
+    if args.tag and not _RE_TAG.match(args.tag):
+        print(f"[FAIL] --tag 只能用字母、数字、- 和 _，最长 32 个：{args.tag!r}", file=sys.stderr)
+        return E_USAGE
+    try:
+        run_fn = run_fn_for(args.impl)
+    except ImportError as e:
+        print(f"[FAIL] --impl {args.impl} 缺依赖：{e}（pip install -r requirements.txt）",
+              file=sys.stderr)
+        return E_USAGE
+    sfx = suffix_for(args.impl, args.tag)
+
     if args.render_only:
-        return render_from_disk(args.versions)
+        return render_from_disk(args.versions, args.impl, args.tag)
 
     db = paths.chinook_db()
     if not db.is_file():
@@ -358,7 +423,7 @@ def main() -> int:
         return E_NO_DB
 
     if args.fake:
-        return run_selftest(args.fake, db)
+        return run_selftest(args.fake, db, args.impl, args.tag)
 
     try:
         data = load_questions()
@@ -406,11 +471,14 @@ def main() -> int:
     conn = runner.connect(db)
     all_records: dict[str, list[dict]] = {}
     total_errors: list[str] = []
+    if sfx:
+        print(f"实现：{IMPLS[args.impl]}；产物后缀：{sfx}")
     try:
         for v in versions:
             print(f"\n=== 提示词版本 {v} ===")
-            out_json = REPORTS / f"text2sql_results.{v}.json"
-            recs, errors = run_version(v, qs, conn, db, out_json)
+            out_json = REPORTS / f"text2sql_results.{v}{sfx}.json"
+            recs, errors = run_version(v, qs, conn, db, out_json,
+                                       label=sfx.lstrip("."), run_fn=run_fn)
             all_records[v] = recs
             total_errors.extend(errors)
             s = eg.summarize(recs)
@@ -422,11 +490,11 @@ def main() -> int:
         conn.close()
 
     band = load_noise_band()
-    banned = write_report(all_records, band)
+    banned = write_report(all_records, band, args.impl, args.tag)
 
     if banned:
         print(f"\n[FAIL] 报告里出现禁用词 {sorted(set(banned))}："
-              f"{REPORTS / 'text2sql_results.md'}\n"
+              f"{REPORTS / f'text2sql_results{sfx}.md'}\n"
               f"       报告已落盘（数字是真的），但措辞越界，这一轮不算通过。",
               file=sys.stderr)
         return E_BAD_QUESTIONS
@@ -435,11 +503,11 @@ def main() -> int:
         for e in total_errors:
             print(f"  - {e}", file=sys.stderr)
         return E_RUN_ERROR
-    print(f"\n[OK] 全部跑完，报告见 reports/text2sql_results.md")
+    print(f"\n[OK] 全部跑完，报告见 reports/text2sql_results{sfx}.md")
     return E_OK
 
 
-def render_from_disk(versions_arg: str) -> int:
+def render_from_disk(versions_arg: str, impl: str = "hand", tag: str = "") -> int:
     """按**已有的**逐题 JSON 重出一份报告，一次模型调用都不发。
 
     ## 为什么需要它
@@ -457,10 +525,11 @@ def render_from_disk(versions_arg: str) -> int:
     不会去写一份空表。一张写着 0 的空表比没有表更容易被读成结果。
     """
     versions = [v.strip() for v in versions_arg.split(",") if v.strip()]
+    sfx = suffix_for(impl, tag)
     all_records: dict[str, list[dict]] = {}
     missing: list[str] = []
     for v in versions:
-        p = REPORTS / f"text2sql_results.{v}.json"
+        p = REPORTS / f"text2sql_results.{v}{sfx}.json"
         if not p.is_file():
             missing.append(p.name)
             continue
@@ -471,7 +540,7 @@ def render_from_disk(versions_arg: str) -> int:
         print("       先真跑一次：python experiments/09_text2sql_eval.py", file=sys.stderr)
         return E_NO_DB
 
-    banned = write_report(all_records, load_noise_band())
+    banned = write_report(all_records, load_noise_band(), impl, tag)
     if banned:
         print(f"[FAIL] 报告里出现禁用词 {sorted(set(banned))}", file=sys.stderr)
         return E_BAD_QUESTIONS

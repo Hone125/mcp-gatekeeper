@@ -106,6 +106,97 @@ token = auth.make_token("demo-user", scopes=["db:read", "kb:read"])
 挪出事件循环，`Semaphore` 限并发，`wait_for` 超时降级成一条结果记录而不是拖垮整批。
 **为什么必须挪**、以及不挪会怎样（实测并发度退化成 1），见 `reports/concurrency.md`。
 
+## Text2SQL 状态机：手写版与 LangGraph 版
+
+同一个「有界重写」状态机有两套实现，**并列保留**，不是替换：
+
+| | 手写版 `mcp_server/t2sql_core.py` | LangGraph 版 `mcp_server/t2sql_graph.py` |
+|---|---|---|
+| 控制流 | 一个 `for` 循环 + `if` / `continue` / `return` | 4 个节点 + 2 个路由函数 + 1 条回边 |
+| 谁在用 | MCP 的 `ask_database`、HTTP 入口、评测脚本（默认） | 测试（与手写版跑同一批断言）；评测脚本的 `--impl graph` |
+| 依赖 | 无框架 | `langgraph==1.2.16` |
+
+两版共用提示词、取 SQL、失败批注、预算常量（最多 3 次模型调用）、护栏执行和返回体，
+**只有控制流不同**。`tests/test_t2sql_state_machine.py` 里所有调用 `run()` 的用例对两版各跑一遍；
+另有一组对照用例，要求同一剧本下两版发给模型的每一轮消息、返回体逐字相同。
+
+接上真模型的对照（2026-10-23，`deepseek-chat`，提示词 v3，同一天两版各跑一遍 36 题）：
+
+```powershell
+python experiments/09_text2sql_eval.py --versions v3 --impl hand --tag 20261023
+python experiments/09_text2sql_eval.py --versions v3 --impl graph --tag 20261023
+python experiments/33_impl_compare.py --tag 20261023
+```
+
+两版都是可答题 31/32、不可答题拒答 4/4、每题平均 1.00 次调用，**逐题判定翻转 0 道**；
+有 3 道题两版写出的 SQL 文本不同但都判对，那是模型输出自己的抖动。明细见
+[reports/impl_compare.20261023.md](reports/impl_compare.20261023.md)。
+这组数和 [RESULTS.md](RESULTS.md) 第二节 2026-09-18 那一轮**不是同一个模型、同一个端点**，不能拿来直接比。
+
+下图由 `GRAPH.get_graph().draw_mermaid()` 直接导出：实线是固定的边，虚线是路由函数决定的条件边。
+测试会核对这张图和代码现画出来的是否一致。
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	prepare(prepare)
+	generate(generate)
+	execute(execute)
+	repair(repair)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> prepare;
+	execute -.-> __end__;
+	execute -.-> repair;
+	generate -.-> __end__;
+	generate -.-> execute;
+	generate -.-> repair;
+	prepare --> generate;
+	repair --> generate;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+```
+
+### 为什么先手写、再迁移
+
+- **先手写，是为了先把行为钉死。** 这个状态机只有一条循环、三种失败、一个上限，
+  手写一遍最容易看清每一步发生了什么；再用假模型把控制流测透（重写几次、批注怎么写、
+  什么时候停）。这批测试就是行为规格。
+- **再迁移，迁移才有可判定的标准。** 规格在手，迁移就是「换控制流、规格不变」——
+  同一批测试两版都要过，而不是「看起来能跑」。
+- **反过来先上框架**，框架用法和业务逻辑同时在变，测试红了分不清是框架用错了还是逻辑写错了。
+
+### 两种实现的取舍
+
+LangGraph 带来的能力，以及本仓库**实际用上了哪些**：
+
+| 能力 | 是什么 | 本仓库 |
+|---|---|---|
+| 持久化（checkpointer） | 每走一步把 State 存档；同一个会话（`thread_id`）下次接着用 | 接了，只用于多轮追问 `t2sql_graph.ask()`，测试里挂 `InMemorySaver`：同一个 `thread_id` 的第二问会带上之前的问题和最终 SQL。每问独立的字段（`history` 等）每问开头清空，跨轮只保留 `turns`（理由见 `mcp_server/t2sql_graph.py` 文件头）。没有接持久化到磁盘的存档 |
+| 中断恢复（interrupt） | 在某个节点前后停下，等人确认或修改 State 再继续 | 未用 |
+| 可视化 | 从代码直接导出流程图 | 用了：上面那张图 |
+| 流式输出（stream） | 每个节点跑完就产出一次更新，不必等整张图跑完 | 未对外提供 |
+
+LangGraph 的代价：
+
+- **多一个依赖**：`langgraph` 本身之外还带进 21 个传递依赖，其中 8 个是编译扩展
+  （明细见 `requirements.txt` 文件头）；以后升级版本要跟着回归。
+- **多一层抽象**：原来一个函数从头读到尾；现在要对照 State 定义、节点、路由、组图四处，
+  还要先懂 reducer、context、`recursion_limit` 这些框架概念。
+- **出问题要隔着框架调试**：异常栈里多出框架自己的调用层；框架参数的口径要实测才知道 ——
+  例如走满预算的 9 个节点，`recursion_limit` 设 9 会报错、设 10 才够（见 `t2sql_graph.py` 的注释），
+  而这个版本的默认值是 10007，不显式设就几乎等于没有上限。
+
+手写版反过来：零依赖、一个函数读到底、单步调试直接；代价是状态藏在循环的位置里，
+存档、恢复、流式这些都要自己写。
+
+所以两版的定位是：**手写版是行为基准，LangGraph 版是同一份行为在框架上的表达。**
+
 ## 目录结构
 
 ```
@@ -115,6 +206,7 @@ mcp_server/     服务端与全部纯逻辑（可 import，因此可单测）
   db_tools.py      列表 / 结构 / 查询
   kb_tools.py      检索 / 取原文
   t2sql_core.py    自然语言转 SQL 的状态机（有界重写）
+  t2sql_graph.py   同一个状态机的 LangGraph 版（并列实现，手写版保留）
   cost.py          用量账本（JSONL 只追加，金额允许为空）
   dispatch.py      名字 → 工具函数的派发器（HTTP 层的唯一入口）
   http_api.py      FastAPI 入口：路由由 TOOL_SCOPES 现生成
@@ -126,6 +218,7 @@ experiments/    可重跑的入口脚本（全部幂等）
   29_concurrency_bench.py          三种跑法的实测并发度对照
   30_http_smoke.py                 HTTP 入口冒烟（真进程、真端口）
   31_ledger_under_concurrency.py   并发下的账本对账（需要模型凭据）
+  33_impl_compare.py               手写版 vs LangGraph 版的真模型逐题对照（不调模型，读 09 的产物）
 tests/          单元测试：零网络、零模型调用
 tools/check.py  守门链
 data/           公开数据（示例库 .sql + 公版文本 + 出处清单）

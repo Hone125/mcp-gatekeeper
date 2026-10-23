@@ -32,7 +32,7 @@
       "title": "文档里的命令都成立",
       "caliber": "扫描全部 `.md` 里的 `python 某某.py …`：脚本要在、用到的 `--flag` 要在源码文本里出现",
       "status": "PASS",
-      "detail": "83 条命令，脚本与参数全部对得上",
+      "detail": "88 条命令，脚本与参数全部对得上",
       "n_hits": 0,
       "hits": []
     },
@@ -50,7 +50,7 @@
       "title": "README 提到的仓库内路径都存在",
       "caliber": "只查仓库内的相对路径；外链/锚点/通配符/占位符跳过",
       "status": "PASS",
-      "detail": "30 个仓库内路径，全部存在",
+      "detail": "36 个仓库内路径，全部存在",
       "n_hits": 0,
       "hits": []
     },
@@ -59,7 +59,7 @@
       "title": "文档引用的报告都存在（或当场说明未生成）",
       "caliber": "全仓文档里出现的 `reports/*.md|json|jsonl` 逐条查存在性；不存在的，若**同一个自然段**里写了「未生成 / 尚未 / 未完成 / 阶段 6 / 不存在 / 被创建 / 生成后 / 将由」之一则算已交代",
       "status": "PASS",
-      "detail": "29 处引用：25 处文件存在、4 处当场说明未生成",
+      "detail": "32 处引用：28 处文件存在、4 处当场说明未生成",
       "n_hits": 0,
       "hits": []
     },
@@ -68,7 +68,7 @@
       "title": "requirements.txt 覆盖代码里的第三方 import",
       "caliber": "解析 `mcp_server/*.py` 的顶层 import，去掉标准库与本包自身；`import jwt` → PyJWT、`import dotenv` → python-dotenv 这两个名字不一致的单独映射。反方向（声明了没用到）只记录不判失败",
       "status": "PASS",
-      "detail": "8 个第三方包全部已声明；未被 import 的声明：httpx、pytest",
+      "detail": "9 个第三方包全部已声明；未被 import 的声明：httpx、langgraph-checkpoint、pytest",
       "n_hits": 0,
       "hits": []
     }

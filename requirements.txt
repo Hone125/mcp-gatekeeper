@@ -12,7 +12,15 @@
 #
 # 不需要的东西（刻意的）：
 #   - 不需要向量库 / embedding 依赖：知识库检索用 stdlib 的 sqlite3 + FTS5 实现
-#   - 不需要 langchain 或任何 agent 框架：MCP 工具层与状态机都是手写的
+#   - 不需要 langchain：没用它的模型封装、工具封装或 agent 执行器。`langchain-core` 会作为
+#     langgraph 的传递依赖被装上，但本仓库的代码一行都不 import 它
+#   - agent 框架**只有 langgraph 一个，而且只给 `mcp_server/t2sql_graph.py` 用** —— 那是
+#     Text2SQL 状态机的第二套实现。手写版 `t2sql_core.py` 原样保留；MCP 工具层与 HTTP 入口
+#     （`server.ask_database` → `t2sql_core.run`）走的都是手写版，它们不 import langgraph。
+#     ★ 这一条原来写的是「不需要 langchain 或任何 agent 框架：MCP 工具层与状态机都是手写的」。
+#     加了 `t2sql_graph.py` 之后那句话不再成立，所以改成现在这样。
+#     langgraph 能做「替你决定调哪个工具」的那种编排（它自带的 prebuilt agent 就是），但这里只用了
+#     最底层的 `StateGraph`：节点、边、路由条件都是自己写的，它负责的是按图执行、管理 State。
 #     （`fastapi` **不属于这一类**，别把它和 agent 框架混为一谈：agent 框架是
 #      「替你决定调哪个工具、按什么顺序调」的编排器；FastAPI 只是一层 HTTP 传输，
 #      底下调的仍然是本仓库手写的那 6 个函数，路由表也是照着 `auth.TOOL_SCOPES`
@@ -29,6 +37,12 @@
 #   两个包，别混。这条是压日志噪声时查出来的：按 `logging.getLogger("httpx")` 压，
 #   一行都没压掉（见 experiments/31_ledger_under_concurrency.py 的 quiet_http_client_logs）。
 #   httpx2 是纯 Python（无 .pyd/.so），所以它不影响「有没有编译扩展」那句话。
+#   langgraph==1.2.16 带进来 21 个传递依赖（`uv pip install --dry-run langgraph` 实测：新增 22 个包，
+#   已钉住的版本一个都没有升降）。其中 langgraph 自家的是 langgraph-checkpoint==4.3.0 /
+#   langgraph-prebuilt==1.1.1 / langgraph-sdk==0.4.8，另有 langchain-core==1.7.0 / langsmith==0.14.12。
+#   ★ 编译扩展因此又多了 8 个：orjson / ormsgpack / xxhash / zstandard / uuid-utils / pyyaml /
+#   charset-normalizer / websockets 都带 .pyd（本机 site-packages 里逐个数过）。本机装到的都是
+#   `cp312-cp312-win_amd64` 的预编译 wheel，没有现场编译；其他平台有没有 wheel 没有逐个核对。
 
 mcp==2.2.0              # MCP 协议 SDK（2.x：入口是 mcp.server.mcpserver.MCPServer）
 PyJWT==2.14.0           # HS256 令牌签发与校验
@@ -45,6 +59,12 @@ fastapi==0.141.1        # HTTP 路由 + OpenAPI 文档（/docs、/openapi.json �
 starlette==1.6.0        # 直接用它的 HTTPException 改写 /tools/ 下的 404 响应体
 uvicorn==0.53.0         # ASGI 服务器（服务端模式自己 bind 好 socket 再交给它，见 http_api.main）
 
+# LangGraph 版状态机（`mcp_server/t2sql_graph.py`）。只有这一个文件 import 它；
+# 手写版 `t2sql_core.py` 与 MCP / HTTP 入口都不依赖它。传递依赖见文件头。
+langgraph==1.2.16       # StateGraph + Runtime context（context_schema 自 0.6 起才有，别往旧版本降）
+
 # 开发/评测依赖
 pytest==9.1.1
+langgraph-checkpoint==4.3.0  # 测试里直接 import 它的 InMemorySaver（多轮追问）。它本是 langgraph 的传递依赖，
+                             # 但直接 import 的东西不该靠别人顺带装 —— 和上面 starlette 同一个理由
 httpx==0.28.1           # 冒烟脚本与 TestClient 用的 HTTP 客户端（starlette 的 TestClient 依赖它）
