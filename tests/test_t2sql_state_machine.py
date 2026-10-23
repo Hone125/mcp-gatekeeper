@@ -13,13 +13,26 @@
 会因为限流而随机挂掉的测试。切开的代价只是多一个 `llm` 参数。
 
 下面用 `FakeLLM` 把控制流单独顶住。真模型的表现是 `experiments/09_text2sql_eval.py` 的事。
+
+## 两套实现，同一批断言
+
+同一个状态机有两套实现：手写版 `t2sql_core.run()` 与 LangGraph 版 `t2sql_graph.run()`。
+所有调用 `run()` 的用例都通过 `impl` 这个 fixture 拿被测实现，于是**每条各跑两遍**
+（用例 id 里的 `[hand]` / `[graph]`）。控制流测试本来就只看「给什么剧本、模型被怎么调、
+返回什么」，不看内部怎么写 —— 正好拿来当两版共同的行为规格。
+
+参数化只能证明「两版都满足同一组性质」。文件末尾的对照用例再往前一步：
+同一剧本下，两版发给模型的每一轮消息、返回体，**逐字相同**。
 """
 from __future__ import annotations
+
+import re
 
 import pytest
 
 from mcp_server import guardrails as g
 from mcp_server import t2sql_core as core
+from mcp_server import t2sql_graph as graph
 
 
 class FakeLLM:
@@ -44,30 +57,40 @@ class FakeLLM:
         return {"text": text, "model": "fake-model", "usage": self.usage}
 
 
-def _run(tiny_db, replies, **kw):
+@pytest.fixture(params=[core, graph], ids=["hand", "graph"])
+def impl(request):
+    """被测的那一套实现：手写版或 LangGraph 版。参数里带上它的用例自动各跑一遍。
+
+    参数化写在 fixture 上、而不是在每条用例上写 `parametrize`：两版的名单只在这一处，
+    新加的用例只要参数里带上 `impl`、调用写成 `impl.run(...)`，就两版都测到了。
+    """
+    return request.param
+
+
+def _run(impl, tiny_db, replies, **kw):
     fake = FakeLLM(replies)
-    out = core.run("有多少张专辑", db_path=tiny_db, llm=fake, record_cost=False, **kw)
+    out = impl.run("有多少张专辑", db_path=tiny_db, llm=fake, record_cost=False, **kw)
     return fake, out
 
 
 # ---------------------------------------------------------------- 上下文拼装
-def test_the_prompt_carries_the_schema_not_a_hardcoded_one(tiny_db):
+def test_the_prompt_carries_the_schema_not_a_hardcoded_one(impl, tiny_db):
     """结构是从**当次连接的库**里读出来的，不是写死在提示词里的。
 
     这条是「换个库还能用」的前提。写死的话，换一份数据之后模型会拿着
     上一份数据的表名去写 SQL，而且失败原因看起来像「模型不听话」。
     """
-    fake, _ = _run(tiny_db, ["SELECT 1"])
+    fake, _ = _run(impl, tiny_db, ["SELECT 1"])
     user = fake.seen[0][1]["content"]
     assert "artist" in user and "album" in user
     assert "CREATE TABLE" not in user, "不该把建表语句原样塞进提示词"
 
 
-def test_three_versions_differ_only_in_the_tail(tiny_db):
+def test_three_versions_differ_only_in_the_tail(impl, tiny_db):
     """三版提示词必须能 diff 出差别，而不是三份各自演化、看不出关系的文本。"""
     texts = {}
     for v in core.VERSIONS:
-        fake, _ = _run(tiny_db, ["SELECT 1"], version=v)
+        fake, _ = _run(impl, tiny_db, ["SELECT 1"], version=v)
         texts[v] = fake.seen[0][1]["content"]
     assert texts["v1"] != texts["v2"] != texts["v3"]
     # 前面那一大段（结构说明）应当一致，差别只在末尾的追加要求
@@ -136,17 +159,17 @@ def test_three_kinds_of_failure_get_three_different_nudges():
 
 
 # ---------------------------------------------------------------- 控制流
-def test_first_attempt_success_calls_the_model_exactly_once(tiny_db):
-    fake, out = _run(tiny_db, ["SELECT name FROM artist"])
+def test_first_attempt_success_calls_the_model_exactly_once(impl, tiny_db):
+    fake, out = _run(impl, tiny_db, ["SELECT name FROM artist"])
     assert out["ok"] is True and out["status"] == "ok"
     assert len(fake.seen) == 1
     assert out["attempts"] == 1 and out["max_attempts"] == 3
     assert out["rows"] == [["A"], ["B"]]
 
 
-def test_a_blocked_first_attempt_is_retried_with_the_reason(tiny_db):
+def test_a_blocked_first_attempt_is_retried_with_the_reason(impl, tiny_db):
     """★ 核心路径：第一次写了个 DROP，被护栏拦下，改写后成功。"""
-    fake, out = _run(tiny_db, [
+    fake, out = _run(impl, tiny_db, [
         "DROP TABLE artist",                                    # 第一次：被 L1 拦
         "```sql\nSELECT name FROM artist\n```",                 # 第二次：成功
     ])
@@ -166,9 +189,9 @@ def test_a_blocked_first_attempt_is_retried_with_the_reason(tiny_db):
     assert second[1]["content"] == fake.seen[0][1]["content"]
 
 
-def test_an_execution_error_is_retried_differently_from_a_block(tiny_db):
+def test_an_execution_error_is_retried_differently_from_a_block(impl, tiny_db):
     """护栏放行但 SQL 执行失败 —— 这时该改的是**语义**（列名），不是写法。"""
-    fake, out = _run(tiny_db, [
+    fake, out = _run(impl, tiny_db, [
         "SELECT titel FROM album",          # 列名拼错，护栏放行、执行报错
         "SELECT title FROM album",
     ])
@@ -178,14 +201,14 @@ def test_an_execution_error_is_retried_differently_from_a_block(tiny_db):
     assert "no such column" in fake.seen[1][-1]["content"]
 
 
-def test_exhaustion_keeps_the_whole_failure_scene(tiny_db):
+def test_exhaustion_keeps_the_whole_failure_scene(impl, tiny_db):
     """★ 次数用尽后返回**完整失败现场**，而不是一个干净的「失败」错误码。
 
     三次各自的 SQL、被哪条规则拦下、报错原文，全部留在 `history` 里。
     这些是台账里最值钱的部分 —— 它们是真实模型踩过的坑，丢掉就没了。
     只返回一个 `EXHAUSTED` 好看，但什么都没留下。
     """
-    fake, out = _run(tiny_db, ["DROP TABLE artist"] * 5)
+    fake, out = _run(impl, tiny_db, ["DROP TABLE artist"] * 5)
     assert out["ok"] is False
     assert out["status"] == "blocked"
     assert len(fake.seen) == 3, "上限就是 3 次，第 4 次不该发生"
@@ -195,72 +218,72 @@ def test_exhaustion_keeps_the_whole_failure_scene(tiny_db):
         assert h["blocked"] is True and h["rule"] == g.R_FORBIDDEN_KEYWORD
 
 
-def test_status_distinguishes_blocked_from_failed(tiny_db):
+def test_status_distinguishes_blocked_from_failed(impl, tiny_db):
     """耗尽时的 status 要能区分「一直过不了护栏」和「一直执行报错」。"""
-    _, blocked = _run(tiny_db, ["DROP TABLE artist"] * 3)
-    _, failed = _run(tiny_db, ["SELECT titel FROM album"] * 3)
+    _, blocked = _run(impl, tiny_db, ["DROP TABLE artist"] * 3)
+    _, failed = _run(impl, tiny_db, ["SELECT titel FROM album"] * 3)
     assert blocked["status"] == "blocked" and blocked["error"]
     assert failed["status"] == "failed" and "no such column" in failed["error"]
 
 
-def test_a_model_that_answers_unsupported_stops_immediately(tiny_db):
+def test_a_model_that_answers_unsupported_stops_immediately(impl, tiny_db):
     """★ 说「答不了」是一个**有效结论**，不该被当成失败再去重写两次。
 
     它只值一次调用。如果这里变成 3 次，那么「模型明确知道超出范围」的题
     会白烧两次调用，而且报告里会把它们记成失败。
     """
-    fake, out = _run(tiny_db, ["-- UNSUPPORTED 库里没有作曲家的表"] * 3)
+    fake, out = _run(impl, tiny_db, ["-- UNSUPPORTED 库里没有作曲家的表"] * 3)
     assert len(fake.seen) == 1, "说了 UNSUPPORTED 就不该再试"
     assert out["status"] == "unsupported" and out["ok"] is False
     assert out["attempts"] == 1
     assert "作曲家的表" in out["error"]
 
 
-def test_an_empty_reply_gets_a_format_nudge_and_counts_as_an_attempt(tiny_db):
-    fake, out = _run(tiny_db, ["让我想想……", "SELECT name FROM artist"])
+def test_an_empty_reply_gets_a_format_nudge_and_counts_as_an_attempt(impl, tiny_db):
+    fake, out = _run(impl, tiny_db, ["让我想想……", "SELECT name FROM artist"])
     assert out["ok"] is True and len(fake.seen) == 2
     assert out["history"][0]["kind"] == "empty"
     nudge = fake.seen[1][-1]["content"]
     assert "SELECT" in nudge and "不要写解释" in nudge
 
 
-def test_the_repair_budget_is_a_named_constant(tiny_db):
+def test_the_repair_budget_is_a_named_constant(impl, tiny_db):
     """上限必须是模块级常量，不是散在代码里的魔数。"""
     assert core.MAX_REPAIR == 2
     assert core.MAX_ATTEMPTS == core.MAX_REPAIR + 1
-    _, out = _run(tiny_db, ["DROP TABLE artist"] * 9)
+    _, out = _run(impl, tiny_db, ["DROP TABLE artist"] * 9)
     assert out["max_attempts"] == core.MAX_ATTEMPTS
 
 
 # ---------------------------------------------------------------- 用量
-def test_usage_accumulates_over_attempts(tiny_db):
+def test_usage_accumulates_over_attempts(impl, tiny_db):
     """用量按**每次调用**累加，不是只记最后一次 —— 否则重试的成本被抹掉了。"""
-    fake, out = _run(tiny_db, ["DROP TABLE artist", "SELECT name FROM artist"])
+    fake, out = _run(impl, tiny_db, ["DROP TABLE artist", "SELECT name FROM artist"])
     assert len(fake.seen) == 2
     assert out["usage"]["calls"] == 2
     assert out["usage"]["prompt_tokens"] == 22
     assert out["usage"]["completion_tokens"] == 14
 
 
-def test_usage_survives_a_model_that_reports_none(tiny_db):
+def test_usage_survives_a_model_that_reports_none(impl, tiny_db):
     """有些网关不回 usage。**不许因此崩掉**，只能记 0 并在别处说明。"""
     fake = FakeLLM(["SELECT name FROM artist"])
     fake.usage = None  # type: ignore[assignment]
-    out = core.run("q", db_path=tiny_db, llm=fake, record_cost=False)
+    out = impl.run("q", db_path=tiny_db, llm=fake, record_cost=False)
     assert out["ok"] is True
     assert out["usage"]["calls"] == 1
     assert out["usage"]["prompt_tokens"] == 0
 
 
-def test_usage_survives_a_dict_shaped_usage(tiny_db):
+def test_usage_survives_a_dict_shaped_usage(impl, tiny_db):
     """usage 可能是对象也可能是字典，两种都要认。"""
     fake = FakeLLM(["SELECT 1"], usage={"prompt_tokens": 3, "completion_tokens": 4})
-    out = core.run("q", db_path=tiny_db, llm=fake, record_cost=False)
+    out = impl.run("q", db_path=tiny_db, llm=fake, record_cost=False)
     assert out["usage"]["prompt_tokens"] == 3
 
 
 # ---------------------------------------------------------------- 契约
-def test_result_shape_is_stable_across_every_status(tiny_db):
+def test_result_shape_is_stable_across_every_status(impl, tiny_db):
     """四种结局的返回体字段**完全一致**，只取值不同。
 
     字段时有时无的话，调用方每次都得 `if "rows" in out` —— 那种代码迟早漏一处。
@@ -268,23 +291,63 @@ def test_result_shape_is_stable_across_every_status(tiny_db):
     keys = None
     for replies in (["SELECT name FROM artist"], ["DROP TABLE artist"] * 3,
                     ["-- UNSUPPORTED 缺表"] * 3, ["让我想想……"] * 3):
-        _, out = _run(tiny_db, replies)
+        _, out = _run(impl, tiny_db, replies)
         if keys is None:
             keys = set(out)
         assert set(out) == keys, f"返回体字段不一致：{set(out) ^ keys}"
 
 
-def test_run_never_raises_on_a_hostile_model(tiny_db):
+def test_run_never_raises_on_a_hostile_model(impl, tiny_db):
     """模型回什么都行 —— 空、超长、纯符号、带控制字符。跑到底，不抛异常。"""
     for reply in ["", " " * 100, "\x00\x01", "```", "SELECT", "--", "🎉" * 50,
                   "SELECT " + "x" * 5000]:
-        _, out = _run(tiny_db, [reply] * 3)
+        _, out = _run(impl, tiny_db, [reply] * 3)
         assert isinstance(out, dict) and out["status"] in ("ok", "blocked", "failed", "unsupported")
 
 
-def test_a_missing_database_is_reported_not_raised(tmp_path):
+def test_a_missing_database_is_reported_not_raised(impl, tmp_path):
     """库没建时要把「先跑构建脚本」这句话带出来，而不是抛一个 FileNotFoundError。"""
     fake = FakeLLM(["SELECT 1"])
-    out = core.run("q", db_path=tmp_path / "nope.db", llm=fake, record_cost=False)
+    out = impl.run("q", db_path=tmp_path / "nope.db", llm=fake, record_cost=False)
     assert out["ok"] is False
     assert "01_build_db.py" in str(out), "错误信息要指向修复动作"
+
+
+# ---------------------------------------------------------------- 两版对照
+@pytest.mark.parametrize("replies", [
+    ["SELECT name FROM artist"],
+    ["DROP TABLE artist", "```sql\nSELECT name FROM artist\n```"],
+    ["SELECT titel FROM album", "SELECT title FROM album"],
+    ["DROP TABLE artist"] * 3,
+    ["SELECT titel FROM album"] * 3,
+    ["-- UNSUPPORTED 库里没有作曲家的表"],
+    ["让我想想……", "SELECT name FROM artist"],
+    ["让我想想……", "DROP TABLE artist", "SELECT * FROM pragma_table_info('album')"],
+], ids=["ok", "blocked-then-ok", "error-then-ok", "blocked-x3", "failed-x3",
+        "unsupported", "empty-then-ok", "empty-static-engine"])
+def test_both_implementations_send_and_return_exactly_the_same(tiny_db, replies):
+    """★ 同一剧本下，两版**发给模型的每一轮消息**和**返回体**逐字相同。
+
+    上面的参数化用例只能断言「两版都满足同一组性质」，这一条断言「两版是同一个行为」。
+    它专门守着 `t2sql_graph.EMPTY_NUDGE`：那句格式提醒是从手写版照抄的（手写版没把它提成常量），
+    改了一边忘了另一边时，上面只查子串的用例照样绿，这一条会红。
+    最后一个剧本把「没给出 SQL / 静态规则拦下 / 引擎回调拦下」三种回灌串在同一次运行里。
+    """
+    a, b = FakeLLM(replies), FakeLLM(replies)
+    out_a = core.run("有多少张专辑", db_path=tiny_db, llm=a, record_cost=False)
+    out_b = graph.run("有多少张专辑", db_path=tiny_db, llm=b, record_cost=False)
+    assert b.seen == a.seen, "两版发给模型的消息不一样"
+    assert b.labels == a.labels, "两版给模型调用打的标签不一样"
+    assert out_b == out_a, "两版的返回体不一样"
+
+
+def test_the_readme_diagram_is_the_one_the_code_draws(root):
+    """README 里那张流程图必须就是代码现画出来的那张。手抄一张图，迟早和代码对不上。"""
+    text = (root / "README.md").read_text(encoding="utf-8")
+    m = re.search(r"```mermaid\n(.*?)```", text, re.S)
+    assert m, "README 里找不到 mermaid 图"
+    drawn = graph.GRAPH.get_graph().draw_mermaid()
+    assert m.group(1).strip() == drawn.strip(), (
+        "README 的流程图和代码对不上。重新导出：\n"
+        "  python -c \"from mcp_server.t2sql_graph import GRAPH; "
+        "print(GRAPH.get_graph().draw_mermaid())\"")

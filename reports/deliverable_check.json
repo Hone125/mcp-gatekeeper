@@ -50,7 +50,7 @@
       "title": "README 提到的仓库内路径都存在",
       "caliber": "只查仓库内的相对路径；外链/锚点/通配符/占位符跳过",
       "status": "PASS",
-      "detail": "30 个仓库内路径，全部存在",
+      "detail": "33 个仓库内路径，全部存在",
       "n_hits": 0,
       "hits": []
     },
@@ -68,7 +68,7 @@
       "title": "requirements.txt 覆盖代码里的第三方 import",
       "caliber": "解析 `mcp_server/*.py` 的顶层 import，去掉标准库与本包自身；`import jwt` → PyJWT、`import dotenv` → python-dotenv 这两个名字不一致的单独映射。反方向（声明了没用到）只记录不判失败",
       "status": "PASS",
-      "detail": "8 个第三方包全部已声明；未被 import 的声明：httpx、pytest",
+      "detail": "9 个第三方包全部已声明；未被 import 的声明：httpx、pytest",
       "n_hits": 0,
       "hits": []
     }
